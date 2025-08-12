@@ -4,6 +4,7 @@ import { OrbitControls } from '@react-three/drei';
 import * as THREE from 'three';
 import SphereWaveform from './components/SphereWaveform';
 import type { WaveState } from './components/SphereWaveform';
+import { useMicAnalyzer } from './hooks/useMicAnalyzer';
 
 function Scene({ state, volume, vertexCount }: { state: WaveState; volume: number; vertexCount: number }) {
   const bg = useMemo(() => new THREE.Color('#0b0f13'), []);
@@ -27,8 +28,10 @@ function App() {
   const [mode, setMode] = useState<WaveState>('spin');
   const [sliderVolume, setSliderVolume] = useState<number>(0);
   const [vertexCount, setVertexCount] = useState<number>(400);
+  const [micEnabled, setMicEnabled] = useState<boolean>(false);
+  const mic = useMicAnalyzer({ smoothingTimeConstant: 0.85, fftSize: 1024 });
   
-  const effectiveVolume = sliderVolume;
+  const effectiveVolume = Math.min(1, sliderVolume + (micEnabled && mic.isActive ? mic.volume : 0));
 
   return (
     <div className="app-root">
@@ -66,6 +69,26 @@ function App() {
             title="Number of points on the sphere"
           />
           <span style={{ width: 64, textAlign: 'right' }}>{vertexCount}</span>
+        </div>
+        <div className="row" style={{ gap: 8 }}>
+          <label>Microphone</label>
+          <input
+            type="checkbox"
+            checked={micEnabled}
+            onChange={async (e) => {
+              const enabled = e.target.checked;
+              setMicEnabled(enabled);
+              if (enabled) {
+                await mic.start();
+              } else {
+                mic.stop();
+              }
+            }}
+            title="Enable microphone input; volume slider is additive"
+          />
+          {micEnabled && !mic.isActive && mic.error && (
+            <span style={{ color: '#fca5a5' }}>{mic.error}</span>
+          )}
         </div>
         <div className="row">
           <label>Volume</label>
