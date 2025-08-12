@@ -1,71 +1,41 @@
-import { useEffect, useMemo, useRef } from 'react';
+import { useMemo, useRef } from 'react';
 import * as THREE from 'three';
 import { useFrame } from '@react-three/fiber';
 import { generateFibonacciSpherePoints } from '../utils/fibonacciSphere';
 
-export type WaveState = 'thinking' | 'listening' | 'talking';
+export type WaveState = 'spin' | 'pulse';
 
 export interface SphereWaveformProps {
   vertexCount?: number;
   state: WaveState;
   volume: number; // 0..1
-  testMode?: boolean; // overrides external volume with internal noise
   radius?: number; // default 1
-  pointSize?: number; // default 0.05 logical px
-  color?: string | [string, string]; // solid or gradient between two colors
-  seed?: number; // deterministic layout and per-vertex seeds
-  smoothing?: number; // 0..1, higher is smoother (slower response)
-  debug?: boolean;
+  pointSize?: number; // default 0.04 logical px
+  seed?: number; // layout randomness
 }
 
 interface Uniforms {
   uTime: { value: number };
-  uPrevTime: { value: number };
   uVolume: { value: number };
-  uAmplitude: { value: number };
-  uFrequency: { value: number };
   uRadius: { value: number };
   uPointSize: { value: number };
   uPixelRatio: { value: number };
   uViewportHeight: { value: number };
   uFov: { value: number }; // radians
-  uColorA: { value: THREE.Color };
-  uColorB: { value: THREE.Color };
-  uMode: { value: number }; // 0 thinking, 1 listening, 2 talking
-  uSpinSpeed: { value: number };
-  uRadiusScaleBase: { value: number };
-  uRadiusScaleGain: { value: number };
-  uSmooth: { value: number };
-  uEnableRadial: { value: number };
-  uEnableTangential: { value: number };
-  uDebug: { value: number };
-  uDebugThreshold: { value: number };
+  uMode: { value: number }; // 0 spin, 1 pulse
 }
 
 const vertexShader = /* glsl */ `
 attribute float aSeed;
 
 uniform float uTime;
-uniform float uPrevTime;
 uniform float uVolume;
-uniform float uAmplitude;
-uniform float uFrequency;
 uniform float uRadius;
 uniform float uPointSize;
 uniform float uPixelRatio;
 uniform float uViewportHeight;
 uniform float uFov;
-uniform int uMode;
-uniform float uSpinSpeed;
-uniform float uRadiusScaleBase;
-uniform float uRadiusScaleGain;
-uniform float uSmooth;
-uniform float uEnableRadial;
-uniform float uEnableTangential;
-uniform float uDebug;
-uniform float uDebugThreshold;
-
-varying float vMix;
+uniform int uMode; // 0 spin, 1 pulse
 
 // 3D Simplex Noise from Ashima Arts (public domain)
 vec3 mod289(vec3 x) { return x - floor(x * (1.0 / 289.0)) * 289.0; }
@@ -115,72 +85,34 @@ float snoise(vec3 v){
   p3 *= norm.w;
   vec4 m = max(0.6 - vec4(dot(x0,x0), dot(x1,x1), dot(x2,x2), dot(x3,x3)), 0.0);
   m = m * m;
-  return 42.0 * dot( m*m, vec4( dot(p0,x0), dot(p1,x1),
-                                dot(p2,x2), dot(p3,x3) ) );
+  return 42.0 * dot( m*m, vec4( dot(p0,x0), dot(p1,x1), dot(p2,x2), dot(p3,x3) ) );
 }
 
 void main() {
-  // Base on unit sphere
   vec3 base = normalize(position);
 
-  // Thinking: spin around Z
-  float spinAngle = uTime * uSpinSpeed;
-  float c = cos(spinAngle);
-  float s = sin(spinAngle);
-  base.xy = mat2(c, -s, s, c) * base.xy;
-
-  // Smoothing reduces noise speed (0 -> full speed, 1 -> much slower)
-  float timeScale = mix(1.0, 0.3, clamp(uSmooth, 0.0, 1.0));
-  float t = uTime * uFrequency * timeScale;
-  float tp = uPrevTime * uFrequency * timeScale;
-
-  // Smooth noise time to reduce phase jumps
-  float t1 = t * 0.7;
-  float t2 = t * 0.5 + aSeed * 0.1;
-  float p1 = tp * 0.7;
-  float p2 = tp * 0.5 + aSeed * 0.1;
-
-  // Two low-frequency noise fields
-  float n1 = snoise(base * 0.9 + vec3(aSeed * 17.0, aSeed * 29.0, aSeed * 37.0) + vec3(t1));
-  float n2 = snoise(base * 1.2 + vec3(aSeed * 13.0, aSeed * 19.0, aSeed * 23.0) - vec3(t2));
-
-  // Previous noise to estimate speed
-  float pn1 = snoise(base * 0.9 + vec3(aSeed * 17.0, aSeed * 29.0, aSeed * 37.0) + vec3(p1));
-  float pn2 = snoise(base * 1.2 + vec3(aSeed * 13.0, aSeed * 19.0, aSeed * 23.0) - vec3(p2));
-
-  // Chaotic displacement amplitude driven by volume (kept small and smooth)
-  float amp = uAmplitude * (0.6 + 0.4 * uVolume);
-
-  // Radial displacement (small)
-  float radial = n1 * amp * 0.35 * uEnableRadial;
-
-  // Robust tangent basis using Frisvad's method to avoid pole flips
-  vec3 n = normalize(base);
-  vec3 b1, b2;
-  if (n.z < -0.999999) {
-    b1 = vec3(0.0, -1.0, 0.0);
-    b2 = vec3(-1.0, 0.0, 0.0);
-  } else {
-    float a = 1.0 / (1.0 + n.z);
-    float bb = -n.x * n.y * a;
-    b1 = vec3(1.0 - n.x * n.x * a, bb, -n.x);
-    b2 = vec3(bb, 1.0 - n.y * n.y * a, -n.y);
+  // Spin rotates around Y; pulse leaves orientation but can modulate time speed
+  float timeMul = (uMode == 1) ? 1.8 : 1.0;
+  if (uMode == 0) {
+    float spinAngle = uTime * 0.35;
+    float c = cos(spinAngle);
+    float s = sin(spinAngle);
+    base.xz = mat2(c, -s, s, c) * base.xz;
   }
-  vec3 tangentialDisp = (b1 * n1 + b2 * n2) * amp * 0.35 * uEnableTangential;
 
-  // State-driven radius scaling
-  float radiusScale = clamp(uRadiusScaleBase + uRadiusScaleGain * uVolume, 0.4, 2.0);
+  float t = uTime * 0.4 * timeMul;
+  // Spatially coherent noise domain with small per-vertex seed offset
+  vec3 seedV = vec3(aSeed * 17.0, aSeed * 29.0, aSeed * 37.0);
+  vec3 domain = base * 1.1 + seedV + vec3(0.0, 0.0, t);
+  float n = snoise(domain); // [-1, 1]
 
-  // Do not normalize the sum to avoid discontinuities
-  vec3 displaced = base * (uRadius * radiusScale + radial) + tangentialDisp;
-
-  // Mix factor for coloring
-  float speed = abs(n1 - pn1) + abs(n2 - pn2);
-  vMix = (uDebug > 0.5) ? smoothstep(uDebugThreshold, uDebugThreshold * 4.0, speed) : clamp(0.5 + 0.5 * n2, 0.0, 1.0);
+  // Map n in [-1,1] to multiplicative radius: 1 + n*volume
+  float radialFactor = 1.0 + n * clamp(uVolume, 0.0, 1.0);
+  radialFactor = clamp(radialFactor, 0.0, 2.5);
+  vec3 displaced = base * (uRadius * radialFactor);
 
   vec4 mvPosition = modelViewMatrix * vec4(displaced, 1.0);
-  vec4 clip = projectionMatrix * mvPosition;
-  gl_Position = clip;
+  gl_Position = projectionMatrix * mvPosition;
 
   // FOV-correct perspective size attenuation
   float scale = uViewportHeight / (2.0 * tan(uFov * 0.5));
@@ -191,167 +123,61 @@ void main() {
 
 const fragmentShader = /* glsl */ `
 precision highp float;
-varying float vMix;
-uniform vec3 uColorA;
-uniform vec3 uColorB;
-uniform float uDebug;
-
 void main() {
-  // Soft circular points
   vec2 uv = gl_PointCoord * 2.0 - 1.0;
   float r2 = dot(uv, uv);
   float alpha = smoothstep(1.0, 0.8, r2);
-  vec3 color = (uDebug > 0.5) ? mix(vec3(0.1, 0.6, 0.2), vec3(1.0, 0.0, 0.0), vMix) : mix(uColorA, uColorB, vMix);
-  gl_FragColor = vec4(color, alpha);
+  gl_FragColor = vec4(vec3(1.0), alpha);
 }
 `;
 
-function getStateParams(state: WaveState): { amplitude: number; frequency: number; mode: number; spinSpeed: number; radiusScaleBase: number; radiusScaleGain: number } {
-  switch (state) {
-    case 'thinking':
-      return { amplitude: 0.15, frequency: 0.10, mode: 0, spinSpeed: 0.35, radiusScaleBase: 1.0, radiusScaleGain: 0.0 };
-    case 'listening':
-      return { amplitude: 0.35, frequency: 0.22, mode: 1, spinSpeed: 0.0, radiusScaleBase: 1.0, radiusScaleGain: -0.6 };
-    case 'talking':
-      return { amplitude: 0.6, frequency: 0.4, mode: 2, spinSpeed: 0.0, radiusScaleBase: 1.0, radiusScaleGain: 0.8 };
-    default:
-      return { amplitude: 0.5, frequency: 0.5, mode: 0, spinSpeed: 0.0, radiusScaleBase: 1.0, radiusScaleGain: 0.0 };
-  }
+function getMode(state: WaveState): number {
+  return state === 'spin' ? 0 : 1;
 }
 
 export function SphereWaveform({
-  vertexCount = 100,
+  vertexCount = 400,
   state,
   volume,
-  testMode = false,
   radius = 1,
-  pointSize = 0.05,
-  color = ['#ffffff', '#ffffff'],
+  pointSize = 0.04,
   seed = 1,
-  smoothing = 0.9,
-  debug = false,
 }: SphereWaveformProps) {
   const materialRef = useRef<THREE.ShaderMaterial>(null);
   const uniformsRef = useRef<Uniforms | null>(null);
-  const smoothedVolumeRef = useRef<number>(0);
-  const prevTimeRef = useRef<number>(0);
 
   const { positions, seeds } = useMemo(
     () => generateFibonacciSpherePoints(vertexCount, radius, seed),
     [vertexCount, radius, seed]
   );
 
-  // Parameter interpolation refs
-  const initialParams = useMemo(() => getStateParams(state), []);
-  const paramRef = useRef({
-    current: { ...initialParams },
-    target: { ...initialParams },
-  });
-
-  useEffect(() => {
-    const p = getStateParams(state);
-    paramRef.current.target = { ...p };
-  }, [state]);
-
   // Lazily create uniforms once
   if (uniformsRef.current === null) {
-    const p = paramRef.current.current;
     uniformsRef.current = {
       uTime: { value: 0 },
-      uPrevTime: { value: 0 },
       uVolume: { value: 0 },
-      uAmplitude: { value: p.amplitude },
-      uFrequency: { value: p.frequency },
       uRadius: { value: radius },
       uPointSize: { value: pointSize },
       uPixelRatio: { value: Math.min(window.devicePixelRatio, 2) },
       uViewportHeight: { value: window.innerHeight },
       uFov: { value: (60 * Math.PI) / 180 },
-      uColorA: { value: new THREE.Color(Array.isArray(color) ? color[0] : color) },
-      uColorB: { value: new THREE.Color(Array.isArray(color) ? (color[1] ?? color[0]) : color) },
-      uMode: { value: 0 },
-      uSpinSpeed: { value: p.spinSpeed },
-      uRadiusScaleBase: { value: p.radiusScaleBase },
-      uRadiusScaleGain: { value: p.radiusScaleGain },
-      uSmooth: { value: smoothing },
-      uEnableRadial: { value: 1 },
-      uEnableTangential: { value: 1 },
-      uDebug: { value: debug ? 1 : 0 },
-      uDebugThreshold: { value: 0.02 },
+      uMode: { value: getMode(state) },
     };
   }
-
-  useEffect(() => {
-    const u = uniformsRef.current!;
-    u.uRadius.value = radius;
-  }, [radius]);
-
-  useEffect(() => {
-    const u = uniformsRef.current!;
-    u.uPointSize.value = pointSize;
-  }, [pointSize]);
-
-  useEffect(() => {
-    const u = uniformsRef.current!;
-    u.uSmooth.value = smoothing;
-  }, [smoothing]);
-
-  useEffect(() => {
-    const u = uniformsRef.current!;
-    u.uDebug.value = debug ? 1 : 0;
-  }, [debug]);
-
-  // Update colors by value, not reference
-  const colorA = Array.isArray(color) ? color[0] : color;
-  const colorB = Array.isArray(color) ? (color[1] ?? color[0]) : color;
-  useEffect(() => {
-    const u = uniformsRef.current!;
-    u.uColorA.value.set(colorA);
-  }, [colorA]);
-  useEffect(() => {
-    const u = uniformsRef.current!;
-    u.uColorB.value.set(colorB);
-  }, [colorB]);
 
   useFrame((stateFrame) => {
     const u = uniformsRef.current!;
     const time = stateFrame.clock.getElapsedTime();
-
-    // Interpolate parameters smoothly
-    const dt = stateFrame.clock.getDelta();
-    const k = 6;
-    const lerp = (a: number, b: number) => a + (1 - Math.exp(-k * dt)) * (b - a);
-
-    paramRef.current.current.amplitude = lerp(paramRef.current.current.amplitude, paramRef.current.target.amplitude);
-    paramRef.current.current.frequency = lerp(paramRef.current.current.frequency, paramRef.current.target.frequency);
-    paramRef.current.current.spinSpeed = lerp(paramRef.current.current.spinSpeed, paramRef.current.target.spinSpeed);
-    paramRef.current.current.radiusScaleBase = lerp(paramRef.current.current.radiusScaleBase, paramRef.current.target.radiusScaleBase);
-    paramRef.current.current.radiusScaleGain = lerp(paramRef.current.current.radiusScaleGain, paramRef.current.target.radiusScaleGain);
-
-    u.uAmplitude.value = paramRef.current.current.amplitude;
-    u.uFrequency.value = paramRef.current.current.frequency;
-    u.uSpinSpeed.value = paramRef.current.current.spinSpeed;
-    u.uRadiusScaleBase.value = paramRef.current.current.radiusScaleBase;
-    u.uRadiusScaleGain.value = paramRef.current.current.radiusScaleGain;
-
-    u.uPrevTime.value = prevTimeRef.current;
     u.uTime.value = time;
-    prevTimeRef.current = time;
-
+    u.uMode.value = getMode(state);
+    u.uRadius.value = radius;
+    u.uPointSize.value = pointSize;
     u.uViewportHeight.value = stateFrame.size.height;
     const cam = stateFrame.camera as THREE.PerspectiveCamera;
     if (cam && typeof (cam as any).fov === 'number') {
       u.uFov.value = (cam.fov * Math.PI) / 180;
     }
-
-    const targetVol = testMode ? 0.5 + 0.5 * Math.sin(time * 1.5 + seed * 0.123) : THREE.MathUtils.clamp(volume, 0, 1);
-
-    // Frame-rate independent smoothing for volume
-    const strength = THREE.MathUtils.clamp(smoothing, 0, 1);
-    const mixFactor = 1 - Math.exp(-strength * dt * 10);
-
-    smoothedVolumeRef.current = THREE.MathUtils.lerp(smoothedVolumeRef.current, targetVol, mixFactor);
-    u.uVolume.value = smoothedVolumeRef.current;
+    u.uVolume.value = THREE.MathUtils.clamp(volume, 0, 1);
   });
 
   return (
