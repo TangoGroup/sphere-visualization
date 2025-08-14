@@ -117,6 +117,57 @@ export function ControlSidebar() {
 
         <Separator className="my-6" />
 
+        {/* Screen-space Mask */}
+        <SidebarGroup>
+          <SidebarGroupLabel>Mask</SidebarGroupLabel>
+          <SidebarGroupContent>
+            <div className="flex items-center space-x-2">
+              <Checkbox
+                id="mask-enabled"
+                checked={config.maskEnabled}
+                onCheckedChange={(checked) => setConfig({ maskEnabled: checked as boolean })}
+              />
+              <label htmlFor="mask-enabled" className="text-sm font-medium">Enable Mask</label>
+            </div>
+            {config.maskEnabled && (
+              <>
+                <div>
+                  <label className="block text-sm font-medium mb-2">Mask Radius</label>
+                  <Slider
+                    value={[config.maskRadius]}
+                    onValueChange={([value]) => setConfig({ maskRadius: value })}
+                    min={0}
+                    max={1}
+                    step={0.01}
+                    className="w-full"
+                  />
+                  <div className="text-right text-sm text-gray-400 mt-1">{config.maskRadius.toFixed(2)}</div>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-2">Mask Feather</label>
+                  <Slider
+                    value={[config.maskFeather]}
+                    onValueChange={([value]) => setConfig({ maskFeather: value })}
+                    min={0}
+                    max={1}
+                    step={0.01}
+                    className="w-full"
+                  />
+                  <div className="text-right text-sm text-gray-400 mt-1">{config.maskFeather.toFixed(2)}</div>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <Checkbox
+                    id="mask-invert"
+                    checked={config.maskInvert}
+                    onCheckedChange={(checked) => setConfig({ maskInvert: checked as boolean })}
+                  />
+                  <label htmlFor="mask-invert" className="text-sm font-medium">Invert Mask</label>
+                </div>
+              </>
+            )}
+          </SidebarGroupContent>
+        </SidebarGroup>
+
         {/* Spin Effect */}
         <SidebarGroup>
           <SidebarGroupLabel>Spin Effect</SidebarGroupLabel>

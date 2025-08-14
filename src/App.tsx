@@ -7,7 +7,7 @@ import { ControlSidebar } from './components/ControlSidebar';
 import { useConfigStore } from './stores/configStore';
 import { SidebarProvider, SidebarInset } from '@/components/ui/sidebar';
 
-function Scene({ volume, vertexCount, pointSize, shellCount, freezeTime, advanceCount, useAnalytic, pulseSize, enableSpin, enablePulse, spinSpeed, pulseSpeed, spinAxisX, spinAxisY }: { 
+function Scene({ volume, vertexCount, pointSize, shellCount, freezeTime, advanceCount, useAnalytic, pulseSize, enableSpin, enablePulse, spinSpeed, pulseSpeed, spinAxisX, spinAxisY, maskEnabled, maskRadius, maskFeather, maskInvert }: { 
   volume: number; 
   vertexCount: number; 
   pointSize: number; 
@@ -22,6 +22,10 @@ function Scene({ volume, vertexCount, pointSize, shellCount, freezeTime, advance
   pulseSpeed: number;
   spinAxisX: number;
   spinAxisY: number;
+  maskEnabled: boolean;
+  maskRadius: number;
+  maskFeather: number;
+  maskInvert: boolean;
 }) {
   const bg = useMemo(() => new THREE.Color('#0b0f13'), []);
   return (
@@ -44,6 +48,10 @@ function Scene({ volume, vertexCount, pointSize, shellCount, freezeTime, advance
           pulseSpeed={pulseSpeed}
           spinAxisX={spinAxisX}
           spinAxisY={spinAxisY}
+          maskEnabled={maskEnabled}
+          maskRadius={maskRadius}
+          maskFeather={maskFeather}
+          maskInvert={maskInvert}
         />
       </Suspense>
       <OrbitControls enablePan={false} enableDamping dampingFactor={0.08} />
@@ -75,6 +83,10 @@ function App() {
               pulseSpeed={config.pulseSpeed}
               spinAxisX={config.spinAxisX}
               spinAxisY={config.spinAxisY}
+              maskEnabled={config.maskEnabled}
+              maskRadius={config.maskRadius}
+              maskFeather={config.maskFeather}
+              maskInvert={config.maskInvert}
             />
           </Canvas>
         </div>

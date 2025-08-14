@@ -25,6 +25,14 @@ export interface SphereWaveformProps {
   // Spin axis controls
   spinAxisX?: number;
   spinAxisY?: number;
+  // Screen-space circular gradient mask controls
+  maskEnabled?: boolean;
+  // In [0,1], relative to half of the smaller screen dimension (0.5 ~ quarter of min dimension radius)
+  maskRadius?: number;
+  // In [0,1], feather width relative to half of the smaller screen dimension
+  maskFeather?: number;
+  // If true, keeps outside and occludes inside
+  maskInvert?: boolean;
 }
 
 interface Uniforms {
@@ -33,6 +41,7 @@ interface Uniforms {
   uRadius: { value: number };
   uPointSize: { value: number };
   uPixelRatio: { value: number };
+  uViewportWidth: { value: number };
   uViewportHeight: { value: number };
   uFov: { value: number }; // radians
   uUseAnalytic: { value: number };
@@ -45,6 +54,11 @@ interface Uniforms {
   // Spin axis uniforms
   uSpinAxisX: { value: number };
   uSpinAxisY: { value: number };
+  // Screen-space mask uniforms
+  uMaskEnabled: { value: number };
+  uMaskRadiusPx: { value: number };
+  uMaskFeatherPx: { value: number };
+  uMaskInvert: { value: number };
 }
 
 const vertexShader = /* glsl */ `
@@ -56,6 +70,7 @@ uniform float uVolume;
 uniform float uRadius;
 uniform float uPointSize;
 uniform float uPixelRatio;
+uniform float uViewportWidth;
 uniform float uViewportHeight;
 uniform float uFov;
 uniform int uUseAnalytic;
@@ -68,6 +83,8 @@ uniform float uPulseSpeed;
 // Spin axis uniforms
 uniform float uSpinAxisX;
 uniform float uSpinAxisY;
+
+varying vec2 vNdc;
 
 // Simple hash function for deterministic pseudo-random values
 float hash(float n) { return fract(sin(n) * 43758.5453); }
@@ -159,6 +176,7 @@ void main() {
 
   vec4 mvPosition = modelViewMatrix * vec4(displaced, 1.0);
   gl_Position = projectionMatrix * mvPosition;
+  vNdc = gl_Position.xy / gl_Position.w;
 
   // FOV-correct perspective size attenuation
   float scale = uViewportHeight / (2.0 * tan(uFov * 0.5));
@@ -169,10 +187,26 @@ void main() {
 
 const fragmentShader = /* glsl */ `
 precision highp float;
+uniform float uViewportWidth;
+uniform float uViewportHeight;
+uniform int uMaskEnabled;
+uniform float uMaskRadiusPx;
+uniform float uMaskFeatherPx;
+uniform int uMaskInvert;
+varying vec2 vNdc;
 void main() {
   vec2 uv = gl_PointCoord * 2.0 - 1.0;
   float r2 = dot(uv, uv);
   float alpha = smoothstep(1.0, 0.8, r2);
+  if (uMaskEnabled > 0) {
+    // Compute pixel-space distance from screen center using NDC of the point
+    // NDC [-1,1] maps to pixels via width/2 and height/2 scaling
+    vec2 deltaPx = vec2(vNdc.x * 0.5 * uViewportWidth, vNdc.y * 0.5 * uViewportHeight);
+    float distPx = length(deltaPx);
+    float inside = 1.0 - smoothstep(uMaskRadiusPx, uMaskRadiusPx + max(0.0001, uMaskFeatherPx), distPx);
+    float mask = (uMaskInvert > 0) ? (1.0 - inside) : inside;
+    alpha *= clamp(mask, 0.0, 1.0);
+  }
   gl_FragColor = vec4(vec3(1.0), alpha);
 }
 `;
@@ -197,6 +231,10 @@ export function SphereWaveform({
   pulseSpeed = 1.8,
   spinAxisX = 0,
   spinAxisY = 0,
+  maskEnabled = false,
+  maskRadius = 0.5,
+  maskFeather = 0.2,
+  maskInvert = false,
 }: SphereWaveformProps) {
   const uniformsRef = useRef<Uniforms[] | null>(null);
   const prevNowRef = useRef<number | null>(null);
@@ -224,6 +262,7 @@ export function SphereWaveform({
         uRadius: { value: radius * (i === 0 ? 1 : 1 + i * 0.2) },
         uPointSize: { value: pointSize },
         uPixelRatio: { value: Math.min(window.devicePixelRatio, 2) },
+        uViewportWidth: { value: window.innerWidth },
         uViewportHeight: { value: window.innerHeight },
         uFov: { value: (60 * Math.PI) / 180 },
         uUseAnalytic: { value: useAnalytic ? 1 : 0 },
@@ -234,6 +273,10 @@ export function SphereWaveform({
         uPulseSpeed: { value: pulseSpeed },
         uSpinAxisX: { value: spinAxisX },
         uSpinAxisY: { value: spinAxisY },
+        uMaskEnabled: { value: maskEnabled ? 1 : 0 },
+        uMaskRadiusPx: { value: 0 },
+        uMaskFeatherPx: { value: 0 },
+        uMaskInvert: { value: maskInvert ? 1 : 0 },
       })
     }
     // Shrink
@@ -269,6 +312,7 @@ export function SphereWaveform({
       u.uTime.value = timeAccRef.current;
       u.uRadius.value = radius * (1 + i * 0.2);
       u.uPointSize.value = pointSize;
+      u.uViewportWidth.value = stateFrame.size.width;
       u.uViewportHeight.value = stateFrame.size.height;
       const cam = stateFrame.camera as THREE.PerspectiveCamera;
       if (cam && typeof (cam as any).fov === 'number') {
@@ -283,6 +327,12 @@ export function SphereWaveform({
       u.uPulseSpeed.value = pulseSpeed;
       u.uSpinAxisX.value = spinAxisX;
       u.uSpinAxisY.value = spinAxisY;
+      // Screen-space mask updates
+      u.uMaskEnabled.value = maskEnabled ? 1 : 0;
+      u.uMaskInvert.value = maskInvert ? 1 : 0;
+      const minHalf = Math.min(stateFrame.size.width, stateFrame.size.height) * 0.5;
+      u.uMaskRadiusPx.value = THREE.MathUtils.clamp(maskRadius, 0, 1) * minHalf;
+      u.uMaskFeatherPx.value = THREE.MathUtils.clamp(maskFeather, 0, 1) * minHalf;
     }
   });
 

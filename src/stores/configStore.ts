@@ -32,14 +32,23 @@ type ConfigV2 = Omit<ConfigV1, 'version'> & {
   spinAxisY: number;
 }
 
+type ConfigV3 = Omit<ConfigV2, 'version'> & {
+  version: 3;
+  // Screen-space circular gradient mask controls
+  maskEnabled: boolean;
+  maskRadius: number; // 0..1 relative to half min(screenW, screenH)
+  maskFeather: number; // 0..1 relative to half min(screenW, screenH)
+  maskInvert: boolean;
+}
+
 // Current configuration interface
-export interface Config extends ConfigV2 {
-  version: 2;
+export interface Config extends ConfigV3 {
+  version: 3;
 }
 
 // Default configuration
 const defaultConfig: Config = {
-  version: 2,
+  version: 3,
   // Global controls
   vertexCount: 400,
   pointSize: 0.04,
@@ -56,6 +65,12 @@ const defaultConfig: Config = {
   pulseSize: 1.0,
   spinAxisX: 0,
   spinAxisY: 0,
+  
+  // Mask controls
+  maskEnabled: false,
+  maskRadius: 0.5,
+  maskFeather: 0.2,
+  maskInvert: false,
   
   // Debug controls
   freezeTime: false,
@@ -82,13 +97,26 @@ function migrateConfig(config: any): Config {
 
   switch (version) {
     case 1:
-      return migrateV1ToV2(config as ConfigV1);
+      return migrateV2ToV3(migrateV1ToV2(config as ConfigV1));
     case 2:
+      return migrateV2ToV3(config as ConfigV2);
+    case 3:
       return config as Config;
     default:
       console.warn(`Unknown config version ${version}, using defaults`);
       return defaultConfig;
   }
+}
+
+function migrateV2ToV3(config: ConfigV2): ConfigV3 {
+  return {
+    ...config,
+    version: 3,
+    maskEnabled: false,
+    maskRadius: 0.5,
+    maskFeather: 0.2,
+    maskInvert: false,
+  };
 }
 
 // Zustand store
