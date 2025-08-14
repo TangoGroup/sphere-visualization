@@ -7,25 +7,29 @@ import { ControlSidebar } from './components/ControlSidebar';
 import { useConfigStore } from './stores/configStore';
 import { SidebarProvider, SidebarInset } from '@/components/ui/sidebar';
 
-function Scene({ volume, vertexCount, pointSize, shellCount, freezeTime, advanceCount, useAnalytic, pulseSize, enableSpin, enablePulse, spinSpeed, pulseSpeed, spinAxisX, spinAxisY, maskEnabled, maskRadius, maskFeather, maskInvert }: { 
+function Scene({ volume, vertexCount, pointSize, shellCount, freezeTime, advanceCount, enableRandomishNoise, randomishAmount, enableSineNoise, sineAmount, pulseSize, enableSpin, spinSpeed, spinAxisX, spinAxisY, maskEnabled, maskRadius, maskFeather, maskInvert, sineSpeed, sineScale, randomishSpeed }: { 
   volume: number; 
   vertexCount: number; 
   pointSize: number; 
   shellCount: number; 
   freezeTime: boolean; 
   advanceCount: number; 
-  useAnalytic: boolean; 
+  enableRandomishNoise: boolean;
+  randomishAmount: number;
+  enableSineNoise: boolean;
+  sineAmount: number;
   pulseSize: number; 
   enableSpin: boolean; 
-  enablePulse: boolean; 
   spinSpeed: number; 
-  pulseSpeed: number;
   spinAxisX: number;
   spinAxisY: number;
   maskEnabled: boolean;
   maskRadius: number;
   maskFeather: number;
   maskInvert: boolean;
+  sineSpeed: number;
+  sineScale: number;
+  randomishSpeed: number;
 }) {
   const bg = useMemo(() => new THREE.Color('#0b0f13'), []);
   return (
@@ -40,18 +44,22 @@ function Scene({ volume, vertexCount, pointSize, shellCount, freezeTime, advance
           shellCount={shellCount}
           freezeTime={freezeTime}
           advanceCount={advanceCount}
-          useAnalytic={useAnalytic}
+          enableRandomishNoise={enableRandomishNoise}
+          randomishAmount={randomishAmount}
+          enableSineNoise={enableSineNoise}
+          sineAmount={sineAmount}
           pulseSize={pulseSize}
           enableSpin={enableSpin}
-          enablePulse={enablePulse}
           spinSpeed={spinSpeed}
-          pulseSpeed={pulseSpeed}
+          randomishSpeed={randomishSpeed}
           spinAxisX={spinAxisX}
           spinAxisY={spinAxisY}
           maskEnabled={maskEnabled}
           maskRadius={maskRadius}
           maskFeather={maskFeather}
           maskInvert={maskInvert}
+          sineSpeed={sineSpeed}
+          sineScale={sineScale}
         />
       </Suspense>
       <OrbitControls enablePan={false} enableDamping dampingFactor={0.08} />
@@ -75,18 +83,23 @@ function App() {
               shellCount={config.shellCount}
               freezeTime={config.freezeTime}
               advanceCount={config.advanceCount}
-              useAnalytic={config.useAnalytic}
+              enableRandomishNoise={config.enableRandomishNoise}
+              randomishAmount={config.randomishAmount}
+              enableSineNoise={config.enableSineNoise}
+              sineAmount={config.sineAmount}
               pulseSize={config.pulseSize}
               enableSpin={config.enableSpin}
-              enablePulse={config.enablePulse}
               spinSpeed={config.spinSpeed}
-              pulseSpeed={config.pulseSpeed}
+              randomishSpeed={config.randomishSpeed}
               spinAxisX={config.spinAxisX}
               spinAxisY={config.spinAxisY}
               maskEnabled={config.maskEnabled}
               maskRadius={config.maskRadius}
               maskFeather={config.maskFeather}
               maskInvert={config.maskInvert}
+              sineSpeed={config.sineSpeed}
+              sineScale={config.sineScale}
+              randomishSpeed={config.randomishSpeed}
             />
           </Canvas>
         </div>

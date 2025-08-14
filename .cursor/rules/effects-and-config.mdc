@@ -1,0 +1,36 @@
+---
+alwaysApply: true
+---
+
+### Cursor Rules
+
+#### Purpose
+Capture basic architectural expectations so AI- and human-driven edits stay consistent.
+
+#### Rendering ownership
+- **SphereWaveform is where particle effects render**: All point cloud/shader logic lives in `src/components/SphereWaveform.tsx`. New visual effects should be implemented here (or in small modules imported by it), then exposed via props/uniforms.
+
+#### Effect composition
+- **Effects must be composable**: New effects should be toggleable and parameterized via props with sane defaults that result in no visual change when disabled.
+- **Non-invasive defaults**: Default values must keep existing visuals unchanged.
+- **Isolation**: Avoid coupling effects together; keep uniforms/logic independent or clearly documented when they interact.
+
+#### Controls ownership
+- **ControlSidebar is where the controls go**: All user-facing knobs/sliders/toggles live in `src/components/ControlSidebar.tsx` and are wired through the config store.
+- **Wiring**: Add new props to `SphereWaveform`, connect them in `src/App.tsx`, and expose them via `ControlSidebar` with consistent names.
+
+#### Config store discipline
+- **Migration required for any state shape change**: Before committing changes to `src/stores/configStore.ts` schema:
+  - Bump the config `version`.
+  - Add a migration function (e.g., `migrateV2ToV3`) that sets defaults for new fields.
+  - Update the `migrateConfig` switch to include the new version.
+  - Update `defaultConfig` with stable defaults.
+
+#### Type & quality rules
+- **No `any` types**: Maintain strong typing for props, uniforms, and store state.
+- **Shader params**: Uniforms should be explicitly added to both vertex/fragment shaders and updated in the frame loop with units documented (e.g., pixels vs normalized).
+- **Lints/build**: Ensure a clean linter run and successful build before marking changes complete.
+
+#### Naming
+- Props and config keys should be descriptive, match UI labels, and reflect units or ranges (e.g., `maskRadius` in 0..1 of half min dimension).
+

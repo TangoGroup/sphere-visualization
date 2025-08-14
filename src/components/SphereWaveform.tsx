@@ -15,13 +15,15 @@ export interface SphereWaveformProps {
   freezeTime?: boolean; // debug: freeze time progression
   advanceCount?: number; // debug: increments to step time forward manually
   advanceAmount?: number; // seconds to advance per count (default 1/60)
-  useAnalytic?: boolean; // debug: use smooth analytic instead of noise
+  // Composable noise toggles
+  enableRandomishNoise?: boolean;
+  randomishAmount?: number; // 0..1
+  enableSineNoise?: boolean;
+  sineAmount?: number; // 0..1
   pulseSize?: number; // 0..1, controls amplitude of pulse state
   // New toggle-based controls
   enableSpin?: boolean;
-  enablePulse?: boolean;
   spinSpeed?: number;
-  pulseSpeed?: number;
   // Spin axis controls
   spinAxisX?: number;
   spinAxisY?: number;
@@ -33,6 +35,9 @@ export interface SphereWaveformProps {
   maskFeather?: number;
   // If true, keeps outside and occludes inside
   maskInvert?: boolean;
+  // Sine noise specific controls
+  sineSpeed?: number; // temporal frequency multiplier
+  sineScale?: number; // scales aSeed phase contribution
 }
 
 interface Uniforms {
@@ -44,13 +49,15 @@ interface Uniforms {
   uViewportWidth: { value: number };
   uViewportHeight: { value: number };
   uFov: { value: number }; // radians
-  uUseAnalytic: { value: number };
+  uEnableRandomish: { value: number };
+  uRandomishAmount: { value: number };
+  uEnableSine: { value: number };
+  uSineAmount: { value: number };
+  uRandomishSpeed: { value: number };
   uPulseSize: { value: number };
   // New toggle-based uniforms
   uEnableSpin: { value: number };
-  uEnablePulse: { value: number };
   uSpinSpeed: { value: number };
-  uPulseSpeed: { value: number };
   // Spin axis uniforms
   uSpinAxisX: { value: number };
   uSpinAxisY: { value: number };
@@ -59,6 +66,9 @@ interface Uniforms {
   uMaskRadiusPx: { value: number };
   uMaskFeatherPx: { value: number };
   uMaskInvert: { value: number };
+  // Sine noise uniforms
+  uSineSpeed: { value: number };
+  uSineScale: { value: number };
 }
 
 const vertexShader = /* glsl */ `
@@ -73,13 +83,17 @@ uniform float uPixelRatio;
 uniform float uViewportWidth;
 uniform float uViewportHeight;
 uniform float uFov;
-uniform int uUseAnalytic;
+uniform int uEnableRandomish;
+uniform float uRandomishAmount;
+uniform int uEnableSine;
+uniform float uSineAmount;
+uniform float uRandomishSpeed;
+uniform float uSineSpeed;
+uniform float uSineScale;
 uniform float uPulseSize;
 // New toggle-based uniforms
 uniform int uEnableSpin;
-uniform int uEnablePulse;
 uniform float uSpinSpeed;
-uniform float uPulseSpeed;
 // Spin axis uniforms
 uniform float uSpinAxisX;
 uniform float uSpinAxisY;
@@ -154,20 +168,21 @@ void main() {
     base = R * base;
   }
 
-  // Time speed varies based on pulse state
-  float timeMul = (uEnablePulse > 0) ? uPulseSpeed : 0.4;
-  float t = uTime * 0.4 * timeMul;
+  // Base time
+  float t = uTime * 0.4;
   
-  float n;
-  if (uUseAnalytic > 0) {
-    n = sin(t * 1.7 + aSeed * 6.2831853);
-  } else {
-    // Faux noise based on position, time, and seed
-    // pulseSize controls spatial frequency (pattern size)
-    float spatialScale = mix(0.5, 10.0, uPulseSize); // 0.5 = large patterns, 10.0 = small patterns
-    vec3 p = base * spatialScale + vec3(aSeed * 0.1, aSeed * 0.2, t);
-    n = smoothNoise(p) * 2.0 - 1.0; // map [0,1] to [-1,1]
+  float nRandomish = 0.0;
+  if (uEnableRandomish > 0) {
+    float spatialScale = mix(0.5, 10.0, uPulseSize);
+    float tR = t * uRandomishSpeed;
+    vec3 p = base * spatialScale + vec3(aSeed * 0.1, aSeed * 0.2, tR);
+    nRandomish = (smoothNoise(p) * 2.0 - 1.0) * uRandomishAmount;
   }
+  float nSine = 0.0;
+  if (uEnableSine > 0) {
+    nSine = sin(t * uSineSpeed + aSeed * 6.2831853 * uSineScale) * uSineAmount;
+  }
+  float n = nRandomish + nSine;
 
   // Map n in [-1,1] to multiplicative radius: 1 + n*volume
   float radialFactor = 1.0 + n * clamp(uVolume, 0.0, 1.0);
@@ -223,18 +238,22 @@ export function SphereWaveform({
   freezeTime = false,
   advanceCount = 0,
   advanceAmount = 1 / 60,
-  useAnalytic = false,
+  enableRandomishNoise = true,
+  randomishAmount = 1,
+  enableSineNoise = false,
+  sineAmount = 0,
   pulseSize = 1,
   enableSpin = false,
-  enablePulse = false,
   spinSpeed = 0.35,
-  pulseSpeed = 1.8,
+  randomishSpeed = 1.8,
   spinAxisX = 0,
   spinAxisY = 0,
   maskEnabled = false,
   maskRadius = 0.5,
   maskFeather = 0.2,
   maskInvert = false,
+  sineSpeed = 1.7,
+  sineScale = 1.0,
 }: SphereWaveformProps) {
   const uniformsRef = useRef<Uniforms[] | null>(null);
   const prevNowRef = useRef<number | null>(null);
@@ -265,18 +284,22 @@ export function SphereWaveform({
         uViewportWidth: { value: window.innerWidth },
         uViewportHeight: { value: window.innerHeight },
         uFov: { value: (60 * Math.PI) / 180 },
-        uUseAnalytic: { value: useAnalytic ? 1 : 0 },
+        uEnableRandomish: { value: enableRandomishNoise ? 1 : 0 },
+        uRandomishAmount: { value: randomishAmount },
+        uEnableSine: { value: enableSineNoise ? 1 : 0 },
+        uSineAmount: { value: sineAmount },
+        uRandomishSpeed: { value: randomishSpeed },
         uPulseSize: { value: pulseSize },
         uEnableSpin: { value: enableSpin ? 1 : 0 },
-        uEnablePulse: { value: enablePulse ? 1 : 0 },
         uSpinSpeed: { value: spinSpeed },
-        uPulseSpeed: { value: pulseSpeed },
         uSpinAxisX: { value: spinAxisX },
         uSpinAxisY: { value: spinAxisY },
         uMaskEnabled: { value: maskEnabled ? 1 : 0 },
         uMaskRadiusPx: { value: 0 },
         uMaskFeatherPx: { value: 0 },
         uMaskInvert: { value: maskInvert ? 1 : 0 },
+        uSineSpeed: { value: sineSpeed },
+        uSineScale: { value: sineScale },
       })
     }
     // Shrink
@@ -319,12 +342,14 @@ export function SphereWaveform({
         u.uFov.value = (cam.fov * Math.PI) / 180;
       }
       u.uVolume.value = THREE.MathUtils.clamp(volume, 0, 1);
-      u.uUseAnalytic.value = useAnalytic ? 1 : 0;
+      u.uEnableRandomish.value = enableRandomishNoise ? 1 : 0;
+      u.uRandomishAmount.value = THREE.MathUtils.clamp(randomishAmount, 0, 1);
+      u.uEnableSine.value = enableSineNoise ? 1 : 0;
+      u.uSineAmount.value = THREE.MathUtils.clamp(sineAmount, 0, 1);
+      u.uRandomishSpeed.value = randomishSpeed;
       u.uPulseSize.value = THREE.MathUtils.clamp(pulseSize, 0, 1);
       u.uEnableSpin.value = enableSpin ? 1 : 0;
-      u.uEnablePulse.value = enablePulse ? 1 : 0;
       u.uSpinSpeed.value = spinSpeed;
-      u.uPulseSpeed.value = pulseSpeed;
       u.uSpinAxisX.value = spinAxisX;
       u.uSpinAxisY.value = spinAxisY;
       // Screen-space mask updates
@@ -333,6 +358,9 @@ export function SphereWaveform({
       const minHalf = Math.min(stateFrame.size.width, stateFrame.size.height) * 0.5;
       u.uMaskRadiusPx.value = THREE.MathUtils.clamp(maskRadius, 0, 1) * minHalf;
       u.uMaskFeatherPx.value = THREE.MathUtils.clamp(maskFeather, 0, 1) * minHalf;
+      // Sine noise
+      u.uSineSpeed.value = sineSpeed;
+      u.uSineScale.value = sineScale;
     }
   });
 

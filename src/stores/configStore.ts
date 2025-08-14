@@ -41,14 +41,37 @@ type ConfigV3 = Omit<ConfigV2, 'version'> & {
   maskInvert: boolean;
 }
 
+type ConfigV4 = Omit<ConfigV3, 'version' | 'useAnalytic'> & {
+  version: 4;
+  // Noise selection and sine-specific params
+  noiseType: 'randomish' | 'sine';
+  sineSpeed: number;
+  sineScale: number;
+}
+
+type ConfigV5 = Omit<ConfigV4, 'version' | 'noiseType'> & {
+  version: 5;
+  // Composable noise controls
+  enableRandomishNoise: boolean;
+  randomishAmount: number; // 0..1 weight
+  enableSineNoise: boolean;
+  sineAmount: number; // 0..1 weight
+}
+
+type ConfigV6 = Omit<ConfigV5, 'version' | 'enablePulse' | 'pulseSpeed'> & {
+  version: 6;
+  // Per-noise speeds
+  randomishSpeed: number;
+}
+
 // Current configuration interface
-export interface Config extends ConfigV3 {
-  version: 3;
+export interface Config extends ConfigV6 {
+  version: 6;
 }
 
 // Default configuration
 const defaultConfig: Config = {
-  version: 3,
+  version: 6,
   // Global controls
   vertexCount: 400,
   pointSize: 0.04,
@@ -57,11 +80,10 @@ const defaultConfig: Config = {
   
   // Effect toggles
   enableSpin: false,
-  enablePulse: true,
+  // time pulse removed
   
   // Effect parameters
   spinSpeed: 0.35,
-  pulseSpeed: 1.8,
   pulseSize: 1.0,
   spinAxisX: 0,
   spinAxisY: 0,
@@ -72,10 +94,18 @@ const defaultConfig: Config = {
   maskFeather: 0.2,
   maskInvert: false,
   
+  // Noise controls (composable)
+  enableRandomishNoise: true,
+  randomishAmount: 1.0,
+  enableSineNoise: false,
+  sineAmount: 0.0,
+  randomishSpeed: 1.8,
+  sineSpeed: 1.7,
+  sineScale: 1.0,
+  
   // Debug controls
   freezeTime: false,
   advanceCount: 0,
-  useAnalytic: false,
 };
 
 // Migration functions
@@ -97,10 +127,16 @@ function migrateConfig(config: any): Config {
 
   switch (version) {
     case 1:
-      return migrateV2ToV3(migrateV1ToV2(config as ConfigV1));
+      return migrateV5ToV6(migrateV4ToV5(migrateV3ToV4(migrateV2ToV3(migrateV1ToV2(config as ConfigV1)))));
     case 2:
-      return migrateV2ToV3(config as ConfigV2);
+      return migrateV5ToV6(migrateV4ToV5(migrateV3ToV4(migrateV2ToV3(config as ConfigV2))));
     case 3:
+      return migrateV5ToV6(migrateV4ToV5(migrateV3ToV4(config as ConfigV3)));
+    case 4:
+      return migrateV5ToV6(migrateV4ToV5(config as ConfigV4));
+    case 5:
+      return migrateV5ToV6(config as ConfigV5);
+    case 6:
       return config as Config;
     default:
       console.warn(`Unknown config version ${version}, using defaults`);
@@ -117,6 +153,39 @@ function migrateV2ToV3(config: ConfigV2): ConfigV3 {
     maskFeather: 0.2,
     maskInvert: false,
   };
+}
+
+function migrateV3ToV4(config: ConfigV3): ConfigV4 {
+  return {
+    ...config,
+    version: 4,
+    noiseType: 'randomish',
+    sineSpeed: 1.7,
+    sineScale: 1.0,
+  };
+}
+
+function migrateV4ToV5(config: ConfigV4): ConfigV5 {
+  const isSine = config.noiseType === 'sine';
+  return {
+    ...config,
+    version: 5,
+    enableRandomishNoise: !isSine,
+    randomishAmount: isSine ? 0.0 : 1.0,
+    enableSineNoise: isSine,
+    sineAmount: isSine ? 1.0 : 0.0,
+    // carry sineSpeed and sineScale through unchanged
+  } as unknown as ConfigV5;
+}
+
+function migrateV5ToV6(config: ConfigV5): ConfigV6 {
+  // Map old global pulseSpeed to randomishSpeed and drop enablePulse/pulseSpeed
+  const carriedPulseSpeed = (config as any).pulseSpeed;
+  return {
+    ...config,
+    version: 6,
+    randomishSpeed: typeof carriedPulseSpeed === 'number' ? carriedPulseSpeed : 1.8,
+  } as unknown as ConfigV6;
 }
 
 // Zustand store

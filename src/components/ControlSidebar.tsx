@@ -47,7 +47,7 @@ export function ControlSidebar() {
       <SidebarHeader>
         <h1 className="text-xl font-bold">Sphere Waveform</h1>
       </SidebarHeader>
-      <SidebarContent>
+      <SidebarContent className="p-4">
         {/* Global Controls */}
         <SidebarGroup>
           <SidebarGroupLabel>Global Controls</SidebarGroupLabel>
@@ -116,6 +116,110 @@ export function ControlSidebar() {
         </SidebarGroup>
 
         <Separator className="my-6" />
+
+        {/* Noise - Randomish */}
+        <SidebarGroup>
+          <SidebarGroupLabel>Randomish Noise</SidebarGroupLabel>
+          <SidebarGroupContent>
+            <div className="flex items-center space-x-2">
+              <Checkbox
+                id="enable-randomish"
+                checked={config.enableRandomishNoise}
+                onCheckedChange={(checked) => setConfig({ enableRandomishNoise: checked as boolean })}
+              />
+              <label htmlFor="enable-randomish" className="text-sm font-medium">Enable</label>
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-2">Amount</label>
+              <Slider
+                value={[config.randomishAmount]}
+                onValueChange={([value]) => setConfig({ randomishAmount: value })}
+                min={0}
+                max={1}
+                step={0.01}
+                className="w-full"
+              />
+              <div className="text-right text-sm text-gray-400 mt-1">{config.randomishAmount.toFixed(2)}</div>
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-2">Pattern Size</label>
+              <Slider
+                value={[config.pulseSize]}
+                onValueChange={([value]) => setConfig({ pulseSize: value })}
+                min={0.1}
+                max={10.0}
+                step={0.1}
+                className="w-full"
+              />
+              <div className="text-right text-sm text-gray-400 mt-1">{config.pulseSize.toFixed(1)}</div>
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-2">Randomish Speed</label>
+              <Slider
+                value={[config.randomishSpeed]}
+                onValueChange={([value]) => setConfig({ randomishSpeed: value })}
+                min={0.1}
+                max={10.0}
+                step={0.1}
+                className="w-full"
+              />
+              <div className="text-right text-sm text-gray-400 mt-1">{config.randomishSpeed.toFixed(1)}</div>
+            </div>
+          </SidebarGroupContent>
+        </SidebarGroup>
+
+        <Separator className="my-6" />
+
+        {/* Noise - Sine */}
+        <SidebarGroup>
+          <SidebarGroupLabel>Sine Noise</SidebarGroupLabel>
+          <SidebarGroupContent>
+            <div className="flex items-center space-x-2">
+              <Checkbox
+                id="enable-sine"
+                checked={config.enableSineNoise}
+                onCheckedChange={(checked) => setConfig({ enableSineNoise: checked as boolean })}
+              />
+              <label htmlFor="enable-sine" className="text-sm font-medium">Enable</label>
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-2">Amount</label>
+              <Slider
+                value={[config.sineAmount]}
+                onValueChange={([value]) => setConfig({ sineAmount: value })}
+                min={0}
+                max={1}
+                step={0.01}
+                className="w-full"
+              />
+              <div className="text-right text-sm text-gray-400 mt-1">{config.sineAmount.toFixed(2)}</div>
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-2">Sine Speed</label>
+              <Slider
+                value={[config.sineSpeed]}
+                onValueChange={([value]) => setConfig({ sineSpeed: value })}
+                min={0.1}
+                max={10.0}
+                step={0.1}
+                className="w-full"
+              />
+              <div className="text-right text-sm text-gray-400 mt-1">{config.sineSpeed.toFixed(1)}</div>
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-2">Sine Scale</label>
+              <Slider
+                value={[config.sineScale]}
+                onValueChange={([value]) => setConfig({ sineScale: value })}
+                min={0.1}
+                max={5.0}
+                step={0.1}
+                className="w-full"
+              />
+              <div className="text-right text-sm text-gray-400 mt-1">{config.sineScale.toFixed(1)}</div>
+            </div>
+          </SidebarGroupContent>
+        </SidebarGroup>
 
         {/* Screen-space Mask */}
         <SidebarGroup>
@@ -228,52 +332,7 @@ export function ControlSidebar() {
 
         <Separator className="my-6" />
 
-        {/* Pulse Effect */}
-        <SidebarGroup>
-          <SidebarGroupLabel>Pulse Effect</SidebarGroupLabel>
-          <SidebarGroupContent>
-          <div className="flex items-center space-x-2">
-            <Checkbox
-              id="enable-pulse"
-              checked={config.enablePulse}
-              onCheckedChange={(checked) => setConfig({ enablePulse: checked as boolean })}
-            />
-            <label htmlFor="enable-pulse" className="text-sm font-medium">Enable Pulse</label>
-          </div>
-          
-          {config.enablePulse && (
-            <>
-              <div>
-                <label className="block text-sm font-medium mb-2">Pulse Speed</label>
-                <Slider
-                  value={[config.pulseSpeed]}
-                  onValueChange={([value]) => setConfig({ pulseSpeed: value })}
-                  min={0.1}
-                  max={10.0}
-                  step={0.1}
-                  className="w-full"
-                />
-                <div className="text-right text-sm text-gray-400 mt-1">{config.pulseSpeed.toFixed(1)}</div>
-              </div>
-              
-              <div>
-                <label className="block text-sm font-medium mb-2">Pulse Size</label>
-                <Slider
-                  value={[config.pulseSize]}
-                  onValueChange={([value]) => setConfig({ pulseSize: value })}
-                  min={0.1}
-                  max={10.0}
-                  step={0.1}
-                  className="w-full"
-                />
-                <div className="text-right text-sm text-gray-400 mt-1">{config.pulseSize.toFixed(1)}</div>
-              </div>
-            </>
-          )}
-          </SidebarGroupContent>
-        </SidebarGroup>
-
-        <Separator className="my-6" />
+        
 
         {/* Debug Tools */}
         <Accordion type="single" collapsible>
@@ -298,15 +357,6 @@ export function ControlSidebar() {
                   Step Time
                 </Button>
                 <span className="text-sm text-gray-400">({config.advanceCount})</span>
-              </div>
-              
-              <div className="flex items-center space-x-2">
-                <Checkbox
-                  id="use-analytic"
-                  checked={config.useAnalytic}
-                  onCheckedChange={(checked) => setConfig({ useAnalytic: checked as boolean })}
-                />
-                <label htmlFor="use-analytic" className="text-sm font-medium">Use Analytic</label>
               </div>
               
               <Separator />
