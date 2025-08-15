@@ -233,7 +233,7 @@ export function ControlSidebar() {
                     value={[config.arcFeather]}
                     onValueChange={([value]) => setConfig({ arcFeather: value })}
                     min={0}
-                    max={0.25}
+                    max={1}
                     step={0.005}
                     className="w-full"
                   />
@@ -250,6 +250,18 @@ export function ControlSidebar() {
                     className="w-full"
                   />
                   <div className="text-right text-sm text-gray-400 mt-1">{config.arcBrightness.toFixed(2)}×</div>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-2">Altitude</label>
+                  <Slider
+                    value={[config.arcAltitude]}
+                    onValueChange={([value]) => setConfig({ arcAltitude: value })}
+                    min={0}
+                    max={2}
+                    step={0.005}
+                    className="w-full"
+                  />
+                  <div className="text-right text-sm text-gray-400 mt-1">{config.arcAltitude.toFixed(3)}</div>
                 </div>
               </>
             )}

@@ -60,6 +60,7 @@ export interface SphereWaveformProps {
   arcThickness?: number;
   arcFeather?: number;
   arcBrightness?: number;
+  arcAltitude?: number;
 }
 
 interface Uniforms {
@@ -115,6 +116,7 @@ interface Uniforms {
   uArcThick: { value: Float32Array };
   uArcFeather: { value: Float32Array };
   uArcBright: { value: Float32Array };
+  uArcAltitude: { value: number };
 }
 
 const vertexShader = /* glsl */ `
@@ -158,6 +160,7 @@ uniform float uArcSpan[MAX_ARCS];
 uniform float uArcThick[MAX_ARCS];
 uniform float uArcFeather[MAX_ARCS];
 uniform float uArcBright[MAX_ARCS];
+uniform float uArcAltitude;
 // New toggle-based uniforms
 uniform int uEnableSpin;
 uniform float uSpinSpeed;
@@ -306,10 +309,14 @@ void main() {
       float withinSpan = 1.0 - smoothstep(halfSpan, halfSpan + uArcFeather[i], centerDist);
       float planeDist = abs(dot(base, C));
       float withinThick = 1.0 - smoothstep(uArcThick[i], uArcThick[i] + uArcFeather[i], planeDist);
+      // Altitude profile along arc length: 0 at ends, 1 at center
+      float along = clamp(1.0 - centerDist / max(1e-4, halfSpan), 0.0, 1.0);
+      float altShape = sin(along * 3.14159265); // 0..1..0
       float mask = withinSpan * withinThick * fade;
       if (mask > 0.0) {
         vArcBoost += mask * uArcBright[i];
-        displaced += base * (0.02 * mask);
+        // Altitude measured in multiples of sphere radius (uRadius)
+        displaced += base * (uArcAltitude * uRadius * altShape * withinThick * fade);
       }
     }
   }
@@ -356,6 +363,18 @@ void main() {
 
 // Removed getMode function - using toggles instead
 
+type Arc = {
+  center: THREE.Vector3;
+  tangent: THREE.Vector3;
+  t0: number;
+  duration: number;
+  speed: number;
+  span: number;
+  thickness: number;
+  feather: number;
+  brightness: number;
+};
+
 export function SphereWaveform({
   vertexCount = 400,
   volume,
@@ -400,11 +419,13 @@ export function SphereWaveform({
   arcThickness = 0.06,
   arcFeather = 0.04,
   arcBrightness = 1.0,
+  arcAltitude = 0.02,
 }: SphereWaveformProps) {
   const uniformsRef = useRef<Uniforms[] | null>(null);
   const prevNowRef = useRef<number | null>(null);
   const timeAccRef = useRef<number>(0);
   const lastAdvanceRef = useRef<number>(advanceCount);
+  const arcsRef = useRef<Arc[]>([]);
 
   const { positions, seeds } = useMemo(
     () => generateFibonacciSpherePoints(vertexCount, radius, seed),
@@ -466,6 +487,7 @@ export function SphereWaveform({
         uArcThick: { value: new Float32Array(8) },
         uArcFeather: { value: new Float32Array(8) },
         uArcBright: { value: new Float32Array(8) },
+        uArcAltitude: { value: arcAltitude },
       })
     }
     // Shrink
@@ -496,9 +518,53 @@ export function SphereWaveform({
       lastAdvanceRef.current = advanceCount;
     }
 
-    // Build arc uniforms deterministically per frame (no extra state)
+    // Stateful random arc spawner
+    const arcs = arcsRef.current;
+    // Cull expired
+    for (let i = arcs.length - 1; i >= 0; i--) {
+      if (timeAccRef.current - arcs[i].t0 > arcs[i].duration) {
+        arcs.splice(i, 1);
+      }
+    }
     const maxArcs = Math.min(8, Math.max(0, Math.floor(arcMaxCount)));
-    let arcsActive = 0;
+    if (enableArcs && arcSpawnRate > 0 && arcs.length < maxArcs && dt > 0) {
+      let expected = arcSpawnRate * dt;
+      let spawns = Math.floor(expected);
+      const rem = expected - spawns;
+      if (Math.random() < rem) spawns += 1;
+      for (let s = 0; s < spawns && arcs.length < maxArcs; s++) {
+        // Random center on unit sphere
+        const u = Math.random();
+        const v = Math.random();
+        const theta = 2 * Math.PI * u;
+        const z = 2 * v - 1;
+        const r = Math.sqrt(Math.max(0, 1 - z * z));
+        const cx = r * Math.cos(theta);
+        const cy = r * Math.sin(theta);
+        const cz = z;
+        const center = new THREE.Vector3(cx, cy, cz).normalize();
+        // Random direction orthogonal to center
+        const rand = new THREE.Vector3(Math.random() - 0.5, Math.random() - 0.5, Math.random() - 0.5).normalize();
+        let tangent = new THREE.Vector3().crossVectors(center, rand);
+        if (tangent.lengthSq() < 1e-6) {
+          tangent = new THREE.Vector3().crossVectors(center, new THREE.Vector3(1, 0, 0));
+        }
+        tangent.normalize();
+        arcs.push({
+          center,
+          tangent,
+          t0: timeAccRef.current,
+          duration: arcDuration,
+          speed: arcSpeed,
+          span: (Math.max(0, arcSpanDeg) * Math.PI) / 180,
+          thickness: Math.max(0, arcThickness),
+          feather: Math.max(0.0001, arcFeather),
+          brightness: Math.max(0, arcBrightness),
+        });
+      }
+    }
+
+    // Pack arc uniforms
     const centers = new Float32Array(8 * 3);
     const tangents = new Float32Array(8 * 3);
     const t0 = new Float32Array(8);
@@ -508,37 +574,19 @@ export function SphereWaveform({
     const thick = new Float32Array(8);
     const feath = new Float32Array(8);
     const bright = new Float32Array(8);
-    if (enableArcs && arcSpawnRate > 0 && maxArcs > 0) {
-      const seededCount = maxArcs;
-      for (let iArc = 0; iArc < seededCount; iArc++) {
-        const seed = iArc * 97;
-        const localPhase = (timeAccRef.current * arcSpawnRate + seed * 0.01) % 1;
-        const startTime = timeAccRef.current - localPhase * arcDuration;
-        // Random-ish center and tangent (ensure orthogonal)
-        const theta = (seed * 0.13) % (Math.PI * 2);
-        const phi = ((seed * 0.37) % 1) * Math.PI - Math.PI / 2;
-        const cx = Math.cos(theta) * Math.cos(phi);
-        const cy = Math.sin(theta) * Math.cos(phi);
-        const cz = Math.sin(phi);
-        // Tangent: cross(center, up); fallback to X axis if near parallel
-        const upx = 0, upy = 0, upz = 1;
-        let tx = cy * upz - cz * upy;
-        let ty = cz * upx - cx * upz;
-        let tz = cx * upy - cy * upx;
-        const tlen = Math.hypot(tx, ty, tz);
-        if (tlen < 1e-5) { tx = 1; ty = 0; tz = 0; }
-        const idx3 = iArc * 3;
-        centers[idx3 + 0] = cx; centers[idx3 + 1] = cy; centers[idx3 + 2] = cz;
-        tangents[idx3 + 0] = tx; tangents[idx3 + 1] = ty; tangents[idx3 + 2] = tz;
-        t0[iArc] = startTime;
-        dur[iArc] = arcDuration;
-        spd[iArc] = arcSpeed;
-        span[iArc] = (Math.max(0, arcSpanDeg) * Math.PI) / 180;
-        thick[iArc] = Math.max(0, arcThickness);
-        feath[iArc] = Math.max(0.0001, arcFeather);
-        bright[iArc] = Math.max(0, arcBrightness);
-      }
-      arcsActive = Math.min(seededCount, maxArcs);
+    const arcsActive = Math.min(arcs.length, 8);
+    for (let i = 0; i < arcsActive; i++) {
+      const a = arcs[i];
+      const idx3 = i * 3;
+      centers[idx3 + 0] = a.center.x; centers[idx3 + 1] = a.center.y; centers[idx3 + 2] = a.center.z;
+      tangents[idx3 + 0] = a.tangent.x; tangents[idx3 + 1] = a.tangent.y; tangents[idx3 + 2] = a.tangent.z;
+      t0[i] = a.t0;
+      dur[i] = a.duration;
+      spd[i] = a.speed;
+      span[i] = a.span;
+      thick[i] = a.thickness;
+      feath[i] = a.feather;
+      bright[i] = a.brightness;
     }
 
     for (let i = 0; i < uniformsArray.length; i++) {
@@ -595,6 +643,7 @@ export function SphereWaveform({
       u.uArcThick.value.set(thick);
       u.uArcFeather.value.set(feath);
       u.uArcBright.value.set(bright);
+      u.uArcAltitude.value = arcAltitude;
     }
   });
 

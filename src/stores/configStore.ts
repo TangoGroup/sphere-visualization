@@ -119,14 +119,19 @@ type ConfigV13 = Omit<ConfigV12, 'version'> & {
   arcBrightness: number; // 0..3 multiplier for alpha/color
 }
 
+type ConfigV14 = Omit<ConfigV13, 'version'> & {
+  version: 14;
+  arcAltitude: number; // 0..0.2 radial puff amount
+}
+
 // Current configuration interface
-export interface Config extends ConfigV13 {
-  version: 13;
+export interface Config extends ConfigV14 {
+  version: 14;
 }
 
 // Default configuration
 const defaultConfig: Config = {
-  version: 13,
+  version: 14,
   // Global controls
   vertexCount: 400,
   pointSize: 0.04,
@@ -188,6 +193,7 @@ const defaultConfig: Config = {
   arcThickness: 0.06,
   arcFeather: 0.04,
   arcBrightness: 1.0,
+  arcAltitude: 0.02,
 
   // Debug controls
   freezeTime: false,
@@ -213,64 +219,172 @@ function migrateConfig(config: any): Config {
 
   switch (version) {
     case 1:
-      return migrateV10ToV11(migrateV9ToV10(migrateV8ToV9(
-        migrateV7ToV8(
-          migrateV6ToV7(
-            migrateV5ToV6(
-              migrateV4ToV5(
-                migrateV3ToV4(
-                  migrateV2ToV3(migrateV1ToV2(config as ConfigV1))
+      return migrateV13ToV14(
+        migrateV12ToV13(
+          migrateV11ToV12(
+            migrateV10ToV11(
+              migrateV9ToV10(
+                migrateV8ToV9(
+                  migrateV7ToV8(
+                    migrateV6ToV7(
+                      migrateV5ToV6(
+                        migrateV4ToV5(
+                          migrateV3ToV4(
+                            migrateV2ToV3(migrateV1ToV2(config as ConfigV1))
+                          )
+                        )
+                      )
+                    )
+                  )
                 )
               )
             )
           )
         )
-      )));
+      );
     case 2:
-      return migrateV10ToV11(migrateV9ToV10(migrateV8ToV9(
-        migrateV7ToV8(
-          migrateV6ToV7(
-            migrateV5ToV6(
-              migrateV4ToV5(
-                migrateV3ToV4(migrateV2ToV3(config as ConfigV2))
+      return migrateV13ToV14(
+        migrateV12ToV13(
+          migrateV11ToV12(
+            migrateV10ToV11(
+              migrateV9ToV10(
+                migrateV8ToV9(
+                  migrateV7ToV8(
+                    migrateV6ToV7(
+                      migrateV5ToV6(
+                        migrateV4ToV5(
+                          migrateV3ToV4(migrateV2ToV3(config as ConfigV2))
+                        )
+                      )
+                    )
+                  )
+                )
               )
             )
           )
         )
-      )));
+      );
     case 3:
-      return migrateV10ToV11(migrateV9ToV10(migrateV8ToV9(
-        migrateV7ToV8(
-          migrateV6ToV7(
-            migrateV5ToV6(migrateV4ToV5(migrateV3ToV4(config as ConfigV3)))
+      return migrateV13ToV14(
+        migrateV12ToV13(
+          migrateV11ToV12(
+            migrateV10ToV11(
+              migrateV9ToV10(
+                migrateV8ToV9(
+                  migrateV7ToV8(
+                    migrateV6ToV7(
+                      migrateV5ToV6(
+                        migrateV4ToV5(migrateV3ToV4(config as ConfigV3))
+                      )
+                    )
+                  )
+                )
+              )
+            )
           )
         )
-      )));
+      );
     case 4:
-      return migrateV10ToV11(migrateV9ToV10(migrateV8ToV9(
-        migrateV7ToV8(
-          migrateV6ToV7(migrateV5ToV6(migrateV4ToV5(config as ConfigV4)))
+      return migrateV13ToV14(
+        migrateV12ToV13(
+          migrateV11ToV12(
+            migrateV10ToV11(
+              migrateV9ToV10(
+                migrateV8ToV9(
+                  migrateV7ToV8(
+                    migrateV6ToV7(
+                      migrateV5ToV6(migrateV4ToV5(config as ConfigV4))
+                    )
+                  )
+                )
+              )
+            )
+          )
         )
-      )));
+      );
     case 5:
-      return migrateV10ToV11(migrateV9ToV10(migrateV8ToV9(
-        migrateV7ToV8(migrateV6ToV7(migrateV5ToV6(config as ConfigV5)))
-      )));
+      return migrateV13ToV14(
+        migrateV12ToV13(
+          migrateV11ToV12(
+            migrateV10ToV11(
+              migrateV9ToV10(
+                migrateV8ToV9(
+                  migrateV7ToV8(
+                    migrateV6ToV7(migrateV5ToV6(config as ConfigV5))
+                  )
+                )
+              )
+            )
+          )
+        )
+      );
     case 6:
-      return migrateV10ToV11(migrateV9ToV10(migrateV8ToV9(migrateV7ToV8(migrateV6ToV7(config as ConfigV6)))));
+      return migrateV13ToV14(
+        migrateV12ToV13(
+          migrateV11ToV12(
+            migrateV10ToV11(
+              migrateV9ToV10(
+                migrateV8ToV9(
+                  migrateV7ToV8(migrateV6ToV7(config as ConfigV6))
+                )
+              )
+            )
+          )
+        )
+      );
     case 7:
-      return migrateV10ToV11(migrateV9ToV10(migrateV8ToV9(migrateV7ToV8(config as ConfigV7))));
+      return migrateV13ToV14(
+        migrateV12ToV13(
+          migrateV11ToV12(
+            migrateV10ToV11(
+              migrateV9ToV10(
+                migrateV8ToV9(migrateV7ToV8(config as ConfigV7))
+              )
+            )
+          )
+        )
+      );
     case 8:
-      return migrateV10ToV11(migrateV9ToV10(migrateV8ToV9(config as ConfigV8)));
+      return migrateV13ToV14(
+        migrateV12ToV13(
+          migrateV11ToV12(
+            migrateV10ToV11(
+              migrateV9ToV10(migrateV8ToV9(config as ConfigV8))
+            )
+          )
+        )
+      );
     case 9:
-      return migrateV10ToV11(migrateV9ToV10(config as ConfigV9));
+      return migrateV13ToV14(
+        migrateV12ToV13(
+          migrateV11ToV12(
+            migrateV10ToV11(
+              migrateV9ToV10(config as ConfigV9)
+            )
+          )
+        )
+      );
     case 10:
-      return migrateV10ToV11(config as ConfigV10);
+      return migrateV13ToV14(
+        migrateV12ToV13(
+          migrateV11ToV12(
+            migrateV10ToV11(config as ConfigV10)
+          )
+        )
+      );
     case 11:
-      return migrateV11ToV12(config as ConfigV11);
+      return migrateV13ToV14(
+        migrateV12ToV13(
+          migrateV11ToV12(config as ConfigV11)
+        )
+      );
     case 12:
-      return migrateV12ToV13(config as ConfigV12);
+      return migrateV13ToV14(
+        migrateV12ToV13(config as ConfigV12)
+      );
     case 13:
+      return migrateV13ToV14(config as ConfigV13);
+    case 14:
       return config as Config;
     default:
       console.warn(`Unknown config version ${version}, using defaults`);
@@ -390,6 +504,14 @@ function migrateV12ToV13(config: ConfigV12): ConfigV13 {
     arcFeather: 0.04,
     arcBrightness: 1.0,
   } as unknown as ConfigV13;
+}
+
+function migrateV13ToV14(config: ConfigV13): ConfigV14 {
+  return {
+    ...config,
+    version: 14,
+    arcAltitude: 0.02,
+  } as unknown as ConfigV14;
 }
 
 // Zustand store
