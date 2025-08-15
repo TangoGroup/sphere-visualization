@@ -50,6 +50,16 @@ export interface SphereWaveformProps {
   sineScale?: number; // scales aSeed phase contribution
   // Appearance
   pointColor?: string; // hex
+  // Arcs (great-circle segments)
+  enableArcs?: boolean;
+  arcMaxCount?: number;
+  arcSpawnRate?: number;
+  arcDuration?: number;
+  arcSpeed?: number;
+  arcSpanDeg?: number;
+  arcThickness?: number;
+  arcFeather?: number;
+  arcBrightness?: number;
 }
 
 interface Uniforms {
@@ -94,6 +104,17 @@ interface Uniforms {
   uSineScale: { value: number };
   // Appearance
   uColor: { value: THREE.Color };
+  // Arcs
+  uArcsActive: { value: number };
+  uArcCenters: { value: Float32Array };
+  uArcTangents: { value: Float32Array };
+  uArcT0: { value: Float32Array };
+  uArcDur: { value: Float32Array };
+  uArcSpeed: { value: Float32Array };
+  uArcSpan: { value: Float32Array };
+  uArcThick: { value: Float32Array };
+  uArcFeather: { value: Float32Array };
+  uArcBright: { value: Float32Array };
 }
 
 const vertexShader = /* glsl */ `
@@ -125,6 +146,18 @@ uniform float uSurfaceRippleAmount;
 uniform float uSurfaceRippleSpeed;
 uniform float uSurfaceRippleScale;
 uniform vec3 uSurfaceCenter;
+// Arcs
+const int MAX_ARCS = 8;
+uniform int uArcsActive;
+uniform vec3 uArcCenters[MAX_ARCS];
+uniform vec3 uArcTangents[MAX_ARCS];
+uniform float uArcT0[MAX_ARCS];
+uniform float uArcDur[MAX_ARCS];
+uniform float uArcSpeed[MAX_ARCS];
+uniform float uArcSpan[MAX_ARCS];
+uniform float uArcThick[MAX_ARCS];
+uniform float uArcFeather[MAX_ARCS];
+uniform float uArcBright[MAX_ARCS];
 // New toggle-based uniforms
 uniform int uEnableSpin;
 uniform float uSpinSpeed;
@@ -133,6 +166,7 @@ uniform float uSpinAxisX;
 uniform float uSpinAxisY;
 
 varying vec2 vNdc;
+varying float vArcBoost;
 
 // Simple hash function for deterministic pseudo-random values
 float hash(float n) { return fract(sin(n) * 43758.5453); }
@@ -250,6 +284,36 @@ void main() {
   radialFactor = clamp(radialFactor, 0.0, 2.5);
   vec3 displaced = (base + tangentDisplaced) * (uRadius * radialFactor);
 
+  // Arcs influence: accumulate alpha boost and small radial puff
+  vArcBoost = 0.0;
+  if (uArcsActive > 0) {
+    for (int i = 0; i < MAX_ARCS; i++) {
+      if (i >= uArcsActive) { continue; }
+      float age = uTime - uArcT0[i];
+      if (age < 0.0 || age > uArcDur[i]) { continue; }
+      float tnorm = clamp(age / max(0.0001, uArcDur[i]), 0.0, 1.0);
+      // Temporal fade in/out
+      float fade = smoothstep(0.0, 0.2, tnorm) * (1.0 - smoothstep(0.8, 1.0, tnorm));
+      // Great-circle param along arc
+      vec3 C = normalize(uArcCenters[i]);
+      vec3 T = normalize(uArcTangents[i]);
+      vec3 B = cross(C, T);
+      vec3 Np = normalize(base - dot(base, C) * C);
+      float phi = atan(dot(Np, B), dot(Np, T));
+      float phiHead = -tnorm * uArcSpeed[i];
+      float halfSpan = uArcSpan[i] * 0.5;
+      float centerDist = abs(atan(sin(phi - phiHead), cos(phi - phiHead)));
+      float withinSpan = 1.0 - smoothstep(halfSpan, halfSpan + uArcFeather[i], centerDist);
+      float planeDist = abs(dot(base, C));
+      float withinThick = 1.0 - smoothstep(uArcThick[i], uArcThick[i] + uArcFeather[i], planeDist);
+      float mask = withinSpan * withinThick * fade;
+      if (mask > 0.0) {
+        vArcBoost += mask * uArcBright[i];
+        displaced += base * (0.02 * mask);
+      }
+    }
+  }
+
   vec4 mvPosition = modelViewMatrix * vec4(displaced, 1.0);
   gl_Position = projectionMatrix * mvPosition;
   vNdc = gl_Position.xy / gl_Position.w;
@@ -271,6 +335,7 @@ uniform float uMaskFeatherPx;
 uniform int uMaskInvert;
 uniform vec3 uColor;
 varying vec2 vNdc;
+varying float vArcBoost;
 void main() {
   vec2 uv = gl_PointCoord * 2.0 - 1.0;
   float r2 = dot(uv, uv);
@@ -284,6 +349,7 @@ void main() {
     float mask = (uMaskInvert > 0) ? (1.0 - inside) : inside;
     alpha *= clamp(mask, 0.0, 1.0);
   }
+  alpha *= min(3.0, 1.0 + vArcBoost);
   gl_FragColor = vec4(uColor, alpha);
 }
 `;
@@ -325,6 +391,15 @@ export function SphereWaveform({
   sineSpeed = 1.7,
   sineScale = 1.0,
   pointColor = '#ffffff',
+  enableArcs = false,
+  arcMaxCount = 4,
+  arcSpawnRate = 0.25,
+  arcDuration = 4.0,
+  arcSpeed = 1.5,
+  arcSpanDeg = 60,
+  arcThickness = 0.06,
+  arcFeather = 0.04,
+  arcBrightness = 1.0,
 }: SphereWaveformProps) {
   const uniformsRef = useRef<Uniforms[] | null>(null);
   const prevNowRef = useRef<number | null>(null);
@@ -381,6 +456,16 @@ export function SphereWaveform({
         uSineSpeed: { value: sineSpeed },
         uSineScale: { value: sineScale },
         uColor: { value: new THREE.Color(pointColor) },
+        uArcsActive: { value: 0 },
+        uArcCenters: { value: new Float32Array(8 * 3) },
+        uArcTangents: { value: new Float32Array(8 * 3) },
+        uArcT0: { value: new Float32Array(8) },
+        uArcDur: { value: new Float32Array(8) },
+        uArcSpeed: { value: new Float32Array(8) },
+        uArcSpan: { value: new Float32Array(8) },
+        uArcThick: { value: new Float32Array(8) },
+        uArcFeather: { value: new Float32Array(8) },
+        uArcBright: { value: new Float32Array(8) },
       })
     }
     // Shrink
@@ -409,6 +494,51 @@ export function SphereWaveform({
     } else {
       timeAccRef.current += dt;
       lastAdvanceRef.current = advanceCount;
+    }
+
+    // Build arc uniforms deterministically per frame (no extra state)
+    const maxArcs = Math.min(8, Math.max(0, Math.floor(arcMaxCount)));
+    let arcsActive = 0;
+    const centers = new Float32Array(8 * 3);
+    const tangents = new Float32Array(8 * 3);
+    const t0 = new Float32Array(8);
+    const dur = new Float32Array(8);
+    const spd = new Float32Array(8);
+    const span = new Float32Array(8);
+    const thick = new Float32Array(8);
+    const feath = new Float32Array(8);
+    const bright = new Float32Array(8);
+    if (enableArcs && arcSpawnRate > 0 && maxArcs > 0) {
+      const seededCount = maxArcs;
+      for (let iArc = 0; iArc < seededCount; iArc++) {
+        const seed = iArc * 97;
+        const localPhase = (timeAccRef.current * arcSpawnRate + seed * 0.01) % 1;
+        const startTime = timeAccRef.current - localPhase * arcDuration;
+        // Random-ish center and tangent (ensure orthogonal)
+        const theta = (seed * 0.13) % (Math.PI * 2);
+        const phi = ((seed * 0.37) % 1) * Math.PI - Math.PI / 2;
+        const cx = Math.cos(theta) * Math.cos(phi);
+        const cy = Math.sin(theta) * Math.cos(phi);
+        const cz = Math.sin(phi);
+        // Tangent: cross(center, up); fallback to X axis if near parallel
+        const upx = 0, upy = 0, upz = 1;
+        let tx = cy * upz - cz * upy;
+        let ty = cz * upx - cx * upz;
+        let tz = cx * upy - cy * upx;
+        const tlen = Math.hypot(tx, ty, tz);
+        if (tlen < 1e-5) { tx = 1; ty = 0; tz = 0; }
+        const idx3 = iArc * 3;
+        centers[idx3 + 0] = cx; centers[idx3 + 1] = cy; centers[idx3 + 2] = cz;
+        tangents[idx3 + 0] = tx; tangents[idx3 + 1] = ty; tangents[idx3 + 2] = tz;
+        t0[iArc] = startTime;
+        dur[iArc] = arcDuration;
+        spd[iArc] = arcSpeed;
+        span[iArc] = (Math.max(0, arcSpanDeg) * Math.PI) / 180;
+        thick[iArc] = Math.max(0, arcThickness);
+        feath[iArc] = Math.max(0.0001, arcFeather);
+        bright[iArc] = Math.max(0, arcBrightness);
+      }
+      arcsActive = Math.min(seededCount, maxArcs);
     }
 
     for (let i = 0; i < uniformsArray.length; i++) {
@@ -454,6 +584,17 @@ export function SphereWaveform({
       u.uSineScale.value = sineScale;
       // Color
       u.uColor.value.set(pointColor);
+      // Arcs
+      u.uArcsActive.value = arcsActive;
+      u.uArcCenters.value.set(centers);
+      u.uArcTangents.value.set(tangents);
+      u.uArcT0.value.set(t0);
+      u.uArcDur.value.set(dur);
+      u.uArcSpeed.value.set(spd);
+      u.uArcSpan.value.set(span);
+      u.uArcThick.value.set(thick);
+      u.uArcFeather.value.set(feath);
+      u.uArcBright.value.set(bright);
     }
   });
 

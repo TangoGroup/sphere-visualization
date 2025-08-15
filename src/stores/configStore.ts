@@ -105,14 +105,28 @@ type ConfigV12 = Omit<ConfigV11, 'version'> & {
   surfaceRippleScale: number; // 0.1..10
 }
 
+type ConfigV13 = Omit<ConfigV12, 'version'> & {
+  version: 13;
+  // Arc ejections (great-circle segments)
+  enableArcs: boolean;
+  arcMaxCount: number; // 0..8
+  arcSpawnRate: number; // arcs per second
+  arcDuration: number; // seconds
+  arcSpeed: number; // radians per second
+  arcSpanDeg: number; // degrees of visible arc segment
+  arcThickness: number; // 0..0.25 (plane distance threshold)
+  arcFeather: number; // 0..0.25 (soften edges)
+  arcBrightness: number; // 0..3 multiplier for alpha/color
+}
+
 // Current configuration interface
-export interface Config extends ConfigV12 {
-  version: 12;
+export interface Config extends ConfigV13 {
+  version: 13;
 }
 
 // Default configuration
 const defaultConfig: Config = {
-  version: 12,
+  version: 13,
   // Global controls
   vertexCount: 400,
   pointSize: 0.04,
@@ -163,6 +177,17 @@ const defaultConfig: Config = {
   surfaceRippleAmount: 0.0,
   surfaceRippleSpeed: 1.5,
   surfaceRippleScale: 3.0,
+
+  // Arcs (disabled by default)
+  enableArcs: false,
+  arcMaxCount: 4,
+  arcSpawnRate: 0.25,
+  arcDuration: 4.0,
+  arcSpeed: 1.5,
+  arcSpanDeg: 60,
+  arcThickness: 0.06,
+  arcFeather: 0.04,
+  arcBrightness: 1.0,
 
   // Debug controls
   freezeTime: false,
@@ -244,6 +269,8 @@ function migrateConfig(config: any): Config {
     case 11:
       return migrateV11ToV12(config as ConfigV11);
     case 12:
+      return migrateV12ToV13(config as ConfigV12);
+    case 13:
       return config as Config;
     default:
       console.warn(`Unknown config version ${version}, using defaults`);
@@ -347,6 +374,22 @@ function migrateV11ToV12(config: ConfigV11): ConfigV12 {
     surfaceRippleSpeed: 1.5,
     surfaceRippleScale: 3.0,
   } as unknown as ConfigV12;
+}
+
+function migrateV12ToV13(config: ConfigV12): ConfigV13 {
+  return {
+    ...config,
+    version: 13,
+    enableArcs: false,
+    arcMaxCount: 4,
+    arcSpawnRate: 0.25,
+    arcDuration: 4.0,
+    arcSpeed: 1.5,
+    arcSpanDeg: 60,
+    arcThickness: 0.06,
+    arcFeather: 0.04,
+    arcBrightness: 1.0,
+  } as unknown as ConfigV13;
 }
 
 // Zustand store
