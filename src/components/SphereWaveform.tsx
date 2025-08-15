@@ -22,6 +22,11 @@ export interface SphereWaveformProps {
   sineAmount?: number; // 0..1
   randomishSpeed?: number; // time multiplier for randomish noise
   pulseSize?: number; // 0..1, controls amplitude of pulse state
+  // Ripple noise specific controls
+  enableRippleNoise?: boolean;
+  rippleAmount?: number; // 0..1
+  rippleSpeed?: number; // 0.1..10
+  rippleScale?: number; // cycles across surface
   // New toggle-based controls
   enableSpin?: boolean;
   spinSpeed?: number;
@@ -58,6 +63,11 @@ interface Uniforms {
   uSineAmount: { value: number };
   uRandomishSpeed: { value: number };
   uPulseSize: { value: number };
+  // Ripple uniforms
+  uEnableRipple: { value: number };
+  uRippleAmount: { value: number };
+  uRippleSpeed: { value: number };
+  uRippleScale: { value: number };
   // New toggle-based uniforms
   uEnableSpin: { value: number };
   uSpinSpeed: { value: number };
@@ -96,6 +106,10 @@ uniform float uRandomishSpeed;
 uniform float uSineSpeed;
 uniform float uSineScale;
 uniform float uPulseSize;
+uniform int uEnableRipple;
+uniform float uRippleAmount;
+uniform float uRippleSpeed;
+uniform float uRippleScale;
 // New toggle-based uniforms
 uniform int uEnableSpin;
 uniform float uSpinSpeed;
@@ -187,7 +201,16 @@ void main() {
   if (uEnableSine > 0) {
     nSine = sin(t * uSineSpeed + aSeed * 6.2831853 * uSineScale) * uSineAmount;
   }
-  float n = nRandomish + nSine;
+  // Ripple along surface: use base.xy (screen-space-like) waves
+  float nRipple = 0.0;
+  if (uEnableRipple > 0) {
+    float tR = t * uRippleSpeed;
+    // Project to tangent-ish plane using normalized base.xy
+    vec2 uv = normalize(base.xy) * uRippleScale;
+    float wave = sin(uv.x + tR) * sin(uv.y + tR);
+    nRipple = wave * uRippleAmount;
+  }
+  float n = nRandomish + nSine + nRipple;
 
   // Map n in [-1,1] to multiplicative radius: 1 + n*volume
   float radialFactor = 1.0 + n * clamp(uVolume, 0.0, 1.0);
@@ -252,6 +275,10 @@ export function SphereWaveform({
   enableSpin = false,
   spinSpeed = 0.35,
   randomishSpeed = 1.8,
+  enableRippleNoise = false,
+  rippleAmount = 0.0,
+  rippleSpeed = 1.5,
+  rippleScale = 3.0,
   spinAxisX = 0,
   spinAxisY = 0,
   maskEnabled = false,
@@ -297,6 +324,10 @@ export function SphereWaveform({
         uSineAmount: { value: sineAmount },
         uRandomishSpeed: { value: randomishSpeed },
         uPulseSize: { value: pulseSize },
+        uEnableRipple: { value: enableRippleNoise ? 1 : 0 },
+        uRippleAmount: { value: rippleAmount },
+        uRippleSpeed: { value: rippleSpeed },
+        uRippleScale: { value: rippleScale },
         uEnableSpin: { value: enableSpin ? 1 : 0 },
         uSpinSpeed: { value: spinSpeed },
         uSpinAxisX: { value: spinAxisX },
@@ -356,6 +387,11 @@ export function SphereWaveform({
       u.uSineAmount.value = THREE.MathUtils.clamp(sineAmount, 0, 1);
       u.uRandomishSpeed.value = randomishSpeed;
       u.uPulseSize.value = THREE.MathUtils.clamp(pulseSize, 0, 1);
+      // Ripple
+      u.uEnableRipple.value = enableRippleNoise ? 1 : 0;
+      u.uRippleAmount.value = THREE.MathUtils.clamp(rippleAmount, 0, 1);
+      u.uRippleSpeed.value = rippleSpeed;
+      u.uRippleScale.value = rippleScale;
       u.uEnableSpin.value = enableSpin ? 1 : 0;
       u.uSpinSpeed.value = spinSpeed;
       u.uSpinAxisX.value = spinAxisX;

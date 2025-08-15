@@ -87,14 +87,23 @@ type ConfigV10 = Omit<ConfigV9, 'version'> & {
   micSmoothing: number;
 }
 
+type ConfigV11 = Omit<ConfigV10, 'version'> & {
+  version: 11;
+  // Ripple noise (surface XY)
+  enableRippleNoise: boolean;
+  rippleAmount: number; // 0..1
+  rippleSpeed: number; // 0.1..10
+  rippleScale: number; // 0.1..10
+}
+
 // Current configuration interface
-export interface Config extends ConfigV10 {
-  version: 10;
+export interface Config extends ConfigV11 {
+  version: 11;
 }
 
 // Default configuration
 const defaultConfig: Config = {
-  version: 10,
+  version: 11,
   // Global controls
   vertexCount: 400,
   pointSize: 0.04,
@@ -133,6 +142,12 @@ const defaultConfig: Config = {
   micVolume: 1.0,
   micEnabled: false,
   micSmoothing: 0.8,
+  
+  // Ripple noise (surface XY)
+  enableRippleNoise: false,
+  rippleAmount: 0.0,
+  rippleSpeed: 1.5,
+  rippleScale: 3.0,
 
   // Debug controls
   freezeTime: false,
@@ -158,7 +173,7 @@ function migrateConfig(config: any): Config {
 
   switch (version) {
     case 1:
-      return migrateV9ToV10(migrateV8ToV9(
+      return migrateV10ToV11(migrateV9ToV10(migrateV8ToV9(
         migrateV7ToV8(
           migrateV6ToV7(
             migrateV5ToV6(
@@ -170,9 +185,9 @@ function migrateConfig(config: any): Config {
             )
           )
         )
-      ));
+      )));
     case 2:
-      return migrateV9ToV10(migrateV8ToV9(
+      return migrateV10ToV11(migrateV9ToV10(migrateV8ToV9(
         migrateV7ToV8(
           migrateV6ToV7(
             migrateV5ToV6(
@@ -182,34 +197,36 @@ function migrateConfig(config: any): Config {
             )
           )
         )
-      ));
+      )));
     case 3:
-      return migrateV9ToV10(migrateV8ToV9(
+      return migrateV10ToV11(migrateV9ToV10(migrateV8ToV9(
         migrateV7ToV8(
           migrateV6ToV7(
             migrateV5ToV6(migrateV4ToV5(migrateV3ToV4(config as ConfigV3)))
           )
         )
-      ));
+      )));
     case 4:
-      return migrateV9ToV10(migrateV8ToV9(
+      return migrateV10ToV11(migrateV9ToV10(migrateV8ToV9(
         migrateV7ToV8(
           migrateV6ToV7(migrateV5ToV6(migrateV4ToV5(config as ConfigV4)))
         )
-      ));
+      )));
     case 5:
-      return migrateV9ToV10(migrateV8ToV9(
+      return migrateV10ToV11(migrateV9ToV10(migrateV8ToV9(
         migrateV7ToV8(migrateV6ToV7(migrateV5ToV6(config as ConfigV5)))
-      ));
+      )));
     case 6:
-      return migrateV9ToV10(migrateV8ToV9(migrateV7ToV8(migrateV6ToV7(config as ConfigV6))));
+      return migrateV10ToV11(migrateV9ToV10(migrateV8ToV9(migrateV7ToV8(migrateV6ToV7(config as ConfigV6)))));
     case 7:
-      return migrateV9ToV10(migrateV8ToV9(migrateV7ToV8(config as ConfigV7)));
+      return migrateV10ToV11(migrateV9ToV10(migrateV8ToV9(migrateV7ToV8(config as ConfigV7))));
     case 8:
-      return migrateV9ToV10(migrateV8ToV9(config as ConfigV8));
+      return migrateV10ToV11(migrateV9ToV10(migrateV8ToV9(config as ConfigV8)));
     case 9:
-      return migrateV9ToV10(config as ConfigV9);
+      return migrateV10ToV11(migrateV9ToV10(config as ConfigV9));
     case 10:
+      return migrateV10ToV11(config as ConfigV10);
+    case 11:
       return config as Config;
     default:
       console.warn(`Unknown config version ${version}, using defaults`);
@@ -291,6 +308,17 @@ function migrateV9ToV10(config: ConfigV9): ConfigV10 {
     version: 10,
     micSmoothing: 0.8,
   } as unknown as ConfigV10;
+}
+
+function migrateV10ToV11(config: ConfigV10): ConfigV11 {
+  return {
+    ...config,
+    version: 11,
+    enableRippleNoise: false,
+    rippleAmount: 0.0,
+    rippleSpeed: 1.5,
+    rippleScale: 3.0,
+  } as unknown as ConfigV11;
 }
 
 // Zustand store

@@ -266,6 +266,59 @@ export function ControlSidebar() {
           </SidebarGroupContent>
         </SidebarGroup>
 
+        <Separator className="my-6" />
+
+        {/* Noise - Ripple */}
+        <SidebarGroup>
+          <SidebarGroupLabel>Ripple Noise</SidebarGroupLabel>
+          <SidebarGroupContent>
+            <div className="flex items-center space-x-2">
+              <Checkbox
+                id="enable-ripple"
+                checked={config.enableRippleNoise}
+                onCheckedChange={(checked) => setConfig({ enableRippleNoise: checked as boolean })}
+              />
+              <label htmlFor="enable-ripple" className="text-sm font-medium">Enable</label>
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-2">Amount</label>
+              <Slider
+                value={[config.rippleAmount]}
+                onValueChange={([value]) => setConfig({ rippleAmount: value })}
+                min={0}
+                max={1}
+                step={0.01}
+                className="w-full"
+              />
+              <div className="text-right text-sm text-gray-400 mt-1">{config.rippleAmount.toFixed(2)}</div>
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-2">Speed</label>
+              <Slider
+                value={[config.rippleSpeed]}
+                onValueChange={([value]) => setConfig({ rippleSpeed: value })}
+                min={0.1}
+                max={10.0}
+                step={0.1}
+                className="w-full"
+              />
+              <div className="text-right text-sm text-gray-400 mt-1">{config.rippleSpeed.toFixed(1)}</div>
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-2">Scale</label>
+              <Slider
+                value={[config.rippleScale]}
+                onValueChange={([value]) => setConfig({ rippleScale: value })}
+                min={0.1}
+                max={10.0}
+                step={0.1}
+                className="w-full"
+              />
+              <div className="text-right text-sm text-gray-400 mt-1">{config.rippleScale.toFixed(1)}</div>
+            </div>
+          </SidebarGroupContent>
+        </SidebarGroup>
+
         {/* Screen-space Mask */}
         <SidebarGroup>
           <SidebarGroupLabel>Mask</SidebarGroupLabel>

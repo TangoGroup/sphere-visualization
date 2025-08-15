@@ -9,7 +9,7 @@ import { SidebarProvider, SidebarInset } from '@/components/ui/sidebar';
 import { useMicAnalyzer } from '@/hooks/useMicAnalyzer';
 import { useEffect } from 'react';
 
-function Scene({ volume, vertexCount, pointSize, shellCount, freezeTime, advanceCount, enableRandomishNoise, randomishAmount, enableSineNoise, sineAmount, pulseSize, enableSpin, spinSpeed, spinAxisX, spinAxisY, maskEnabled, maskRadius, maskFeather, maskInvert, sineSpeed, sineScale, randomishSpeed, pointColor }: { 
+function Scene({ volume, vertexCount, pointSize, shellCount, freezeTime, advanceCount, enableRandomishNoise, randomishAmount, enableSineNoise, sineAmount, pulseSize, enableSpin, spinSpeed, spinAxisX, spinAxisY, maskEnabled, maskRadius, maskFeather, maskInvert, sineSpeed, sineScale, randomishSpeed, pointColor, enableRippleNoise, rippleAmount, rippleSpeed, rippleScale }: { 
   volume: number; 
   vertexCount: number; 
   pointSize: number; 
@@ -33,6 +33,10 @@ function Scene({ volume, vertexCount, pointSize, shellCount, freezeTime, advance
   sineScale: number;
   randomishSpeed: number;
   pointColor: string;
+  enableRippleNoise: boolean;
+  rippleAmount: number;
+  rippleSpeed: number;
+  rippleScale: number;
 }) {
   const bg = useMemo(() => new THREE.Color('#0b0f13'), []);
   return (
@@ -64,6 +68,10 @@ function Scene({ volume, vertexCount, pointSize, shellCount, freezeTime, advance
           sineSpeed={sineSpeed}
           sineScale={sineScale}
           pointColor={pointColor}
+          enableRippleNoise={enableRippleNoise}
+          rippleAmount={rippleAmount}
+          rippleSpeed={rippleSpeed}
+          rippleScale={rippleScale}
         />
       </Suspense>
       <OrbitControls enablePan={false} enableDamping dampingFactor={0.08} />
@@ -119,6 +127,10 @@ function App() {
               sineSpeed={config.sineSpeed}
               sineScale={config.sineScale}
               pointColor={config.pointColor}
+              enableRippleNoise={config.enableRippleNoise}
+              rippleAmount={config.rippleAmount}
+              rippleSpeed={config.rippleSpeed}
+              rippleScale={config.rippleScale}
             />
           </Canvas>
         </div>
