@@ -319,6 +319,60 @@ export function ControlSidebar() {
           </SidebarGroupContent>
         </SidebarGroup>
 
+        <Separator className="my-6" />
+
+        {/* Noise - Surface Ripple */}
+        <SidebarGroup>
+          <SidebarGroupLabel>Surface Ripple</SidebarGroupLabel>
+          <SidebarGroupContent>
+            <div className="flex items-center space-x-2">
+              <Checkbox
+                id="enable-surface-ripple"
+                checked={config.enableSurfaceRipple}
+                onCheckedChange={(checked) => setConfig({ enableSurfaceRipple: checked as boolean })}
+              />
+              <label htmlFor="enable-surface-ripple" className="text-sm font-medium">Enable</label>
+            </div>
+            <p className="text-xs text-gray-400 mb-2">Compression wave propagating from a moving center on the sphere.</p>
+            <div>
+              <label className="block text-sm font-medium mb-2">Amount</label>
+              <Slider
+                value={[config.surfaceRippleAmount]}
+                onValueChange={([value]) => setConfig({ surfaceRippleAmount: value })}
+                min={0}
+                max={1}
+                step={0.01}
+                className="w-full"
+              />
+              <div className="text-right text-sm text-gray-400 mt-1">{config.surfaceRippleAmount.toFixed(2)}</div>
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-2">Speed</label>
+              <Slider
+                value={[config.surfaceRippleSpeed]}
+                onValueChange={([value]) => setConfig({ surfaceRippleSpeed: value })}
+                min={0.1}
+                max={10.0}
+                step={0.1}
+                className="w-full"
+              />
+              <div className="text-right text-sm text-gray-400 mt-1">{config.surfaceRippleSpeed.toFixed(1)}</div>
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-2">Scale</label>
+              <Slider
+                value={[config.surfaceRippleScale]}
+                onValueChange={([value]) => setConfig({ surfaceRippleScale: value })}
+                min={0.1}
+                max={10.0}
+                step={0.1}
+                className="w-full"
+              />
+              <div className="text-right text-sm text-gray-400 mt-1">{config.surfaceRippleScale.toFixed(1)}</div>
+            </div>
+          </SidebarGroupContent>
+        </SidebarGroup>
+
         {/* Screen-space Mask */}
         <SidebarGroup>
           <SidebarGroupLabel>Mask</SidebarGroupLabel>

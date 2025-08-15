@@ -96,14 +96,23 @@ type ConfigV11 = Omit<ConfigV10, 'version'> & {
   rippleScale: number; // 0.1..10
 }
 
+type ConfigV12 = Omit<ConfigV11, 'version'> & {
+  version: 12;
+  // Surface ripple (tangent displacement)
+  enableSurfaceRipple: boolean;
+  surfaceRippleAmount: number; // 0..1
+  surfaceRippleSpeed: number; // 0.1..10
+  surfaceRippleScale: number; // 0.1..10
+}
+
 // Current configuration interface
-export interface Config extends ConfigV11 {
-  version: 11;
+export interface Config extends ConfigV12 {
+  version: 12;
 }
 
 // Default configuration
 const defaultConfig: Config = {
-  version: 11,
+  version: 12,
   // Global controls
   vertexCount: 400,
   pointSize: 0.04,
@@ -148,6 +157,12 @@ const defaultConfig: Config = {
   rippleAmount: 0.0,
   rippleSpeed: 1.5,
   rippleScale: 3.0,
+  
+  // Surface ripple
+  enableSurfaceRipple: false,
+  surfaceRippleAmount: 0.0,
+  surfaceRippleSpeed: 1.5,
+  surfaceRippleScale: 3.0,
 
   // Debug controls
   freezeTime: false,
@@ -227,6 +242,8 @@ function migrateConfig(config: any): Config {
     case 10:
       return migrateV10ToV11(config as ConfigV10);
     case 11:
+      return migrateV11ToV12(config as ConfigV11);
+    case 12:
       return config as Config;
     default:
       console.warn(`Unknown config version ${version}, using defaults`);
@@ -319,6 +336,17 @@ function migrateV10ToV11(config: ConfigV10): ConfigV11 {
     rippleSpeed: 1.5,
     rippleScale: 3.0,
   } as unknown as ConfigV11;
+}
+
+function migrateV11ToV12(config: ConfigV11): ConfigV12 {
+  return {
+    ...config,
+    version: 12,
+    enableSurfaceRipple: false,
+    surfaceRippleAmount: 0.0,
+    surfaceRippleSpeed: 1.5,
+    surfaceRippleScale: 3.0,
+  } as unknown as ConfigV12;
 }
 
 // Zustand store

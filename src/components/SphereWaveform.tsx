@@ -28,6 +28,10 @@ export interface SphereWaveformProps {
   rippleSpeed?: number; // 0.1..10
   rippleScale?: number; // cycles across surface
   // New toggle-based controls
+  enableSurfaceRipple?: boolean;
+  surfaceRippleAmount?: number;
+  surfaceRippleSpeed?: number;
+  surfaceRippleScale?: number;
   enableSpin?: boolean;
   spinSpeed?: number;
   // Spin axis controls
@@ -68,6 +72,12 @@ interface Uniforms {
   uRippleAmount: { value: number };
   uRippleSpeed: { value: number };
   uRippleScale: { value: number };
+  // Surface ripple (tangent displacement)
+  uEnableSurfaceRipple: { value: number };
+  uSurfaceRippleAmount: { value: number };
+  uSurfaceRippleSpeed: { value: number };
+  uSurfaceRippleScale: { value: number };
+  uSurfaceCenter: { value: THREE.Vector3 };
   // New toggle-based uniforms
   uEnableSpin: { value: number };
   uSpinSpeed: { value: number };
@@ -110,6 +120,11 @@ uniform int uEnableRipple;
 uniform float uRippleAmount;
 uniform float uRippleSpeed;
 uniform float uRippleScale;
+uniform int uEnableSurfaceRipple;
+uniform float uSurfaceRippleAmount;
+uniform float uSurfaceRippleSpeed;
+uniform float uSurfaceRippleScale;
+uniform vec3 uSurfaceCenter;
 // New toggle-based uniforms
 uniform int uEnableSpin;
 uniform float uSpinSpeed;
@@ -201,21 +216,39 @@ void main() {
   if (uEnableSine > 0) {
     nSine = sin(t * uSineSpeed + aSeed * 6.2831853 * uSineScale) * uSineAmount;
   }
-  // Ripple along surface: use base.xy (screen-space-like) waves
+  // Ripple along surface: traveling wave around Z axis using longitude
   float nRipple = 0.0;
   if (uEnableRipple > 0) {
     float tR = t * uRippleSpeed;
-    // Project to tangent-ish plane using normalized base.xy
-    vec2 uv = normalize(base.xy) * uRippleScale;
-    float wave = sin(uv.x + tR) * sin(uv.y + tR);
+    float longitude = atan(base.y, base.x); // [-pi, pi]
+    float wave = sin(longitude * uRippleScale - tR);
     nRipple = wave * uRippleAmount;
+  }
+  // Surface ripple displacement along tangent directions (keeps radius ~constant)
+  vec3 tangentDisplaced = vec3(0.0);
+  if (uEnableSurfaceRipple > 0) {
+    vec3 N = normalize(base);
+    // Geodesic angle from moving center
+    float angle = acos(clamp(dot(N, normalize(uSurfaceCenter)), -1.0, 1.0));
+    float phase = angle * uSurfaceRippleScale - t * uSurfaceRippleSpeed;
+    float wave = sin(phase);
+    // Tangent direction towards center along the surface
+    vec3 toCenterTangent = normalize(uSurfaceCenter - dot(uSurfaceCenter, N) * N);
+    // In case of degeneracy near alignment, fall back to arbitrary tangent
+    if (!all(greaterThan(abs(toCenterTangent), vec3(1e-6)))) {
+      vec3 alt = vec3(1.0, 0.0, 0.0);
+      toCenterTangent = normalize(cross(N, cross(alt, N)));
+    }
+    vec3 offset = toCenterTangent * (wave * uSurfaceRippleAmount * 0.25);
+    vec3 surf = normalize(base + offset);
+    tangentDisplaced = surf - base;
   }
   float n = nRandomish + nSine + nRipple;
 
   // Map n in [-1,1] to multiplicative radius: 1 + n*volume
   float radialFactor = 1.0 + n * clamp(uVolume, 0.0, 1.0);
   radialFactor = clamp(radialFactor, 0.0, 2.5);
-  vec3 displaced = base * (uRadius * radialFactor);
+  vec3 displaced = (base + tangentDisplaced) * (uRadius * radialFactor);
 
   vec4 mvPosition = modelViewMatrix * vec4(displaced, 1.0);
   gl_Position = projectionMatrix * mvPosition;
@@ -279,6 +312,10 @@ export function SphereWaveform({
   rippleAmount = 0.0,
   rippleSpeed = 1.5,
   rippleScale = 3.0,
+  enableSurfaceRipple = false,
+  surfaceRippleAmount = 0.0,
+  surfaceRippleSpeed = 1.5,
+  surfaceRippleScale = 3.0,
   spinAxisX = 0,
   spinAxisY = 0,
   maskEnabled = false,
@@ -328,6 +365,11 @@ export function SphereWaveform({
         uRippleAmount: { value: rippleAmount },
         uRippleSpeed: { value: rippleSpeed },
         uRippleScale: { value: rippleScale },
+        uEnableSurfaceRipple: { value: enableSurfaceRipple ? 1 : 0 },
+        uSurfaceRippleAmount: { value: surfaceRippleAmount },
+        uSurfaceRippleSpeed: { value: surfaceRippleSpeed },
+        uSurfaceRippleScale: { value: surfaceRippleScale },
+        uSurfaceCenter: { value: new THREE.Vector3(0, 0, 1) },
         uEnableSpin: { value: enableSpin ? 1 : 0 },
         uSpinSpeed: { value: spinSpeed },
         uSpinAxisX: { value: spinAxisX },
@@ -392,6 +434,11 @@ export function SphereWaveform({
       u.uRippleAmount.value = THREE.MathUtils.clamp(rippleAmount, 0, 1);
       u.uRippleSpeed.value = rippleSpeed;
       u.uRippleScale.value = rippleScale;
+      // Surface ripple
+      u.uEnableSurfaceRipple.value = enableSurfaceRipple ? 1 : 0;
+      u.uSurfaceRippleAmount.value = THREE.MathUtils.clamp(surfaceRippleAmount, 0, 1);
+      u.uSurfaceRippleSpeed.value = surfaceRippleSpeed;
+      u.uSurfaceRippleScale.value = surfaceRippleScale;
       u.uEnableSpin.value = enableSpin ? 1 : 0;
       u.uSpinSpeed.value = spinSpeed;
       u.uSpinAxisX.value = spinAxisX;

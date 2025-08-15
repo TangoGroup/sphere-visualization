@@ -9,7 +9,7 @@ import { SidebarProvider, SidebarInset } from '@/components/ui/sidebar';
 import { useMicAnalyzer } from '@/hooks/useMicAnalyzer';
 import { useEffect } from 'react';
 
-function Scene({ volume, vertexCount, pointSize, shellCount, freezeTime, advanceCount, enableRandomishNoise, randomishAmount, enableSineNoise, sineAmount, pulseSize, enableSpin, spinSpeed, spinAxisX, spinAxisY, maskEnabled, maskRadius, maskFeather, maskInvert, sineSpeed, sineScale, randomishSpeed, pointColor, enableRippleNoise, rippleAmount, rippleSpeed, rippleScale }: { 
+function Scene({ volume, vertexCount, pointSize, shellCount, freezeTime, advanceCount, enableRandomishNoise, randomishAmount, enableSineNoise, sineAmount, pulseSize, enableSpin, spinSpeed, spinAxisX, spinAxisY, maskEnabled, maskRadius, maskFeather, maskInvert, sineSpeed, sineScale, randomishSpeed, pointColor, enableRippleNoise, rippleAmount, rippleSpeed, rippleScale, enableSurfaceRipple, surfaceRippleAmount, surfaceRippleSpeed, surfaceRippleScale }: { 
   volume: number; 
   vertexCount: number; 
   pointSize: number; 
@@ -37,6 +37,10 @@ function Scene({ volume, vertexCount, pointSize, shellCount, freezeTime, advance
   rippleAmount: number;
   rippleSpeed: number;
   rippleScale: number;
+  enableSurfaceRipple: boolean;
+  surfaceRippleAmount: number;
+  surfaceRippleSpeed: number;
+  surfaceRippleScale: number;
 }) {
   const bg = useMemo(() => new THREE.Color('#0b0f13'), []);
   return (
@@ -72,6 +76,10 @@ function Scene({ volume, vertexCount, pointSize, shellCount, freezeTime, advance
           rippleAmount={rippleAmount}
           rippleSpeed={rippleSpeed}
           rippleScale={rippleScale}
+          enableSurfaceRipple={enableSurfaceRipple}
+          surfaceRippleAmount={surfaceRippleAmount}
+          surfaceRippleSpeed={surfaceRippleSpeed}
+          surfaceRippleScale={surfaceRippleScale}
         />
       </Suspense>
       <OrbitControls enablePan={false} enableDamping dampingFactor={0.08} />
@@ -131,6 +139,10 @@ function App() {
               rippleAmount={config.rippleAmount}
               rippleSpeed={config.rippleSpeed}
               rippleScale={config.rippleScale}
+              enableSurfaceRipple={config.enableSurfaceRipple}
+              surfaceRippleAmount={config.surfaceRippleAmount}
+              surfaceRippleSpeed={config.surfaceRippleSpeed}
+              surfaceRippleScale={config.surfaceRippleScale}
             />
           </Canvas>
         </div>
