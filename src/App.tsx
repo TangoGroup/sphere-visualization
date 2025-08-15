@@ -6,8 +6,10 @@ import SphereWaveform from './components/SphereWaveform';
 import { ControlSidebar } from './components/ControlSidebar';
 import { useConfigStore } from './stores/configStore';
 import { SidebarProvider, SidebarInset } from '@/components/ui/sidebar';
+import { useMicAnalyzer } from '@/hooks/useMicAnalyzer';
+import { useEffect } from 'react';
 
-function Scene({ volume, vertexCount, pointSize, shellCount, freezeTime, advanceCount, enableRandomishNoise, randomishAmount, enableSineNoise, sineAmount, pulseSize, enableSpin, spinSpeed, spinAxisX, spinAxisY, maskEnabled, maskRadius, maskFeather, maskInvert, sineSpeed, sineScale, randomishSpeed }: { 
+function Scene({ volume, vertexCount, pointSize, shellCount, freezeTime, advanceCount, enableRandomishNoise, randomishAmount, enableSineNoise, sineAmount, pulseSize, enableSpin, spinSpeed, spinAxisX, spinAxisY, maskEnabled, maskRadius, maskFeather, maskInvert, sineSpeed, sineScale, randomishSpeed, pointColor }: { 
   volume: number; 
   vertexCount: number; 
   pointSize: number; 
@@ -30,6 +32,7 @@ function Scene({ volume, vertexCount, pointSize, shellCount, freezeTime, advance
   sineSpeed: number;
   sineScale: number;
   randomishSpeed: number;
+  pointColor: string;
 }) {
   const bg = useMemo(() => new THREE.Color('#0b0f13'), []);
   return (
@@ -60,6 +63,7 @@ function Scene({ volume, vertexCount, pointSize, shellCount, freezeTime, advance
           maskInvert={maskInvert}
           sineSpeed={sineSpeed}
           sineScale={sineScale}
+          pointColor={pointColor}
         />
       </Suspense>
       <OrbitControls enablePan={false} enableDamping dampingFactor={0.08} />
@@ -69,6 +73,21 @@ function Scene({ volume, vertexCount, pointSize, shellCount, freezeTime, advance
 
 function App() {
   const { config } = useConfigStore();
+  const mic = useMicAnalyzer({ smoothingTimeConstant: 0.85, fftSize: 1024 });
+
+  useEffect(() => {
+    if (config.micEnabled) {
+      mic.start();
+    } else {
+      mic.stop();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [config.micEnabled]);
+
+  // Apply additional UI smoothing as EMA on top of analyzer's base smoothing
+  const micSmoothed = mic.volume; // analyzer already applies baseline smoothing
+  const micWithGain = config.micEnabled ? Math.min(11, config.micVolume * micSmoothed) : 1;
+  const effectiveVolume = Math.min(1, micWithGain * config.volume);
 
   return (
     <SidebarProvider>
@@ -77,7 +96,7 @@ function App() {
         <div className="flex-1 h-screen">
           <Canvas dpr={[1, 2]} camera={{ position: [0, 0, 3], fov: 60 }}>
             <Scene
-              volume={config.volume}
+              volume={effectiveVolume}
               vertexCount={config.vertexCount}
               pointSize={config.pointSize}
               shellCount={config.shellCount}
@@ -99,7 +118,7 @@ function App() {
               maskInvert={config.maskInvert}
               sineSpeed={config.sineSpeed}
               sineScale={config.sineScale}
-              randomishSpeed={config.randomishSpeed}
+              pointColor={config.pointColor}
             />
           </Canvas>
         </div>

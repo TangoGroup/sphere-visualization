@@ -64,14 +64,37 @@ type ConfigV6 = Omit<ConfigV5, 'version' | 'enablePulse' | 'pulseSpeed'> & {
   randomishSpeed: number;
 }
 
+type ConfigV7 = Omit<ConfigV6, 'version'> & {
+  version: 7;
+  // Appearance
+  pointColor: string; // hex color, e.g. '#ffffff'
+}
+
+type ConfigV8 = Omit<ConfigV7, 'version'> & {
+  version: 8;
+  // Microphone gain applied to input volume
+  micVolume: number; // 1..5
+}
+
+type ConfigV9 = Omit<ConfigV8, 'version'> & {
+  version: 9;
+  micEnabled: boolean;
+}
+
+type ConfigV10 = Omit<ConfigV9, 'version'> & {
+  version: 10;
+  // Output EMA smoothing for mic volume (0..0.98)
+  micSmoothing: number;
+}
+
 // Current configuration interface
-export interface Config extends ConfigV6 {
-  version: 6;
+export interface Config extends ConfigV10 {
+  version: 10;
 }
 
 // Default configuration
 const defaultConfig: Config = {
-  version: 6,
+  version: 10,
   // Global controls
   vertexCount: 400,
   pointSize: 0.04,
@@ -103,6 +126,14 @@ const defaultConfig: Config = {
   sineSpeed: 1.7,
   sineScale: 1.0,
   
+  // Appearance
+  pointColor: '#ffffff',
+  
+  // Microphone
+  micVolume: 1.0,
+  micEnabled: false,
+  micSmoothing: 0.8,
+
   // Debug controls
   freezeTime: false,
   advanceCount: 0,
@@ -127,16 +158,58 @@ function migrateConfig(config: any): Config {
 
   switch (version) {
     case 1:
-      return migrateV5ToV6(migrateV4ToV5(migrateV3ToV4(migrateV2ToV3(migrateV1ToV2(config as ConfigV1)))));
+      return migrateV9ToV10(migrateV8ToV9(
+        migrateV7ToV8(
+          migrateV6ToV7(
+            migrateV5ToV6(
+              migrateV4ToV5(
+                migrateV3ToV4(
+                  migrateV2ToV3(migrateV1ToV2(config as ConfigV1))
+                )
+              )
+            )
+          )
+        )
+      ));
     case 2:
-      return migrateV5ToV6(migrateV4ToV5(migrateV3ToV4(migrateV2ToV3(config as ConfigV2))));
+      return migrateV9ToV10(migrateV8ToV9(
+        migrateV7ToV8(
+          migrateV6ToV7(
+            migrateV5ToV6(
+              migrateV4ToV5(
+                migrateV3ToV4(migrateV2ToV3(config as ConfigV2))
+              )
+            )
+          )
+        )
+      ));
     case 3:
-      return migrateV5ToV6(migrateV4ToV5(migrateV3ToV4(config as ConfigV3)));
+      return migrateV9ToV10(migrateV8ToV9(
+        migrateV7ToV8(
+          migrateV6ToV7(
+            migrateV5ToV6(migrateV4ToV5(migrateV3ToV4(config as ConfigV3)))
+          )
+        )
+      ));
     case 4:
-      return migrateV5ToV6(migrateV4ToV5(config as ConfigV4));
+      return migrateV9ToV10(migrateV8ToV9(
+        migrateV7ToV8(
+          migrateV6ToV7(migrateV5ToV6(migrateV4ToV5(config as ConfigV4)))
+        )
+      ));
     case 5:
-      return migrateV5ToV6(config as ConfigV5);
+      return migrateV9ToV10(migrateV8ToV9(
+        migrateV7ToV8(migrateV6ToV7(migrateV5ToV6(config as ConfigV5)))
+      ));
     case 6:
+      return migrateV9ToV10(migrateV8ToV9(migrateV7ToV8(migrateV6ToV7(config as ConfigV6))));
+    case 7:
+      return migrateV9ToV10(migrateV8ToV9(migrateV7ToV8(config as ConfigV7)));
+    case 8:
+      return migrateV9ToV10(migrateV8ToV9(config as ConfigV8));
+    case 9:
+      return migrateV9ToV10(config as ConfigV9);
+    case 10:
       return config as Config;
     default:
       console.warn(`Unknown config version ${version}, using defaults`);
@@ -186,6 +259,38 @@ function migrateV5ToV6(config: ConfigV5): ConfigV6 {
     version: 6,
     randomishSpeed: typeof carriedPulseSpeed === 'number' ? carriedPulseSpeed : 1.8,
   } as unknown as ConfigV6;
+}
+
+function migrateV6ToV7(config: ConfigV6): ConfigV7 {
+  return {
+    ...config,
+    version: 7,
+    pointColor: '#ffffff',
+  } as unknown as ConfigV7;
+}
+
+function migrateV7ToV8(config: ConfigV7): ConfigV8 {
+  return {
+    ...config,
+    version: 8,
+    micVolume: 1.0,
+  } as unknown as ConfigV8;
+}
+
+function migrateV8ToV9(config: ConfigV8): ConfigV9 {
+  return {
+    ...config,
+    version: 9,
+    micEnabled: false,
+  } as unknown as ConfigV9;
+}
+
+function migrateV9ToV10(config: ConfigV9): ConfigV10 {
+  return {
+    ...config,
+    version: 10,
+    micSmoothing: 0.8,
+  } as unknown as ConfigV10;
 }
 
 // Zustand store

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+ 
 import { ClipboardCopy } from 'lucide-react';
 import { useConfigStore } from '../stores/configStore';
 import { Button } from './ui/button';
@@ -10,7 +10,6 @@ import { Sidebar, SidebarContent, SidebarHeader, SidebarGroup, SidebarGroupConte
 
 export function ControlSidebar() {
   const { config, setConfig, exportConfig, importConfig } = useConfigStore();
-  const [micEnabled, setMicEnabled] = useState(false);
   // Initialize microphone analyzer if needed later
   // const mic = useMicAnalyzer({ smoothingTimeConstant: 0.85, fftSize: 1024 });
 
@@ -92,7 +91,7 @@ export function ControlSidebar() {
           </div>
           
           <div>
-            <label className="block text-sm font-medium mb-2">Volume</label>
+            <label className="block text-sm font-medium mb-2">Effect Power</label>
             <Slider
               value={[config.volume]}
               onValueChange={([value]) => setConfig({ volume: value })}
@@ -107,11 +106,57 @@ export function ControlSidebar() {
           <div className="flex items-center space-x-2">
             <Checkbox
               id="mic-enabled"
-              checked={micEnabled}
-              onCheckedChange={(checked) => setMicEnabled(checked as boolean)}
+              checked={config.micEnabled}
+              onCheckedChange={(checked) => setConfig({ micEnabled: checked as boolean })}
             />
             <label htmlFor="mic-enabled" className="text-sm font-medium">Microphone</label>
           </div>
+          {config.micEnabled && (
+            <div>
+              <label className="block text-sm font-medium mb-2">Mic Volume</label>
+              <Slider
+                value={[config.micVolume]}
+                onValueChange={([value]) => setConfig({ micVolume: value })}
+                min={1}
+                max={11}
+                step={0.1}
+                className="w-full"
+              />
+              <div className="text-right text-sm text-gray-400 mt-1">{config.micVolume.toFixed(1)}×</div>
+            </div>
+          )}
+          {config.micEnabled && (
+            <div>
+              <label className="block text-sm font-medium mb-2">Mic Smoothing</label>
+              <Slider
+                value={[config.micSmoothing]}
+                onValueChange={([value]) => setConfig({ micSmoothing: value })}
+                min={0}
+                max={0.98}
+                step={0.01}
+                className="w-full"
+              />
+              <div className="text-right text-sm text-gray-400 mt-1">EMA α = {config.micSmoothing.toFixed(2)}</div>
+            </div>
+          )}
+        <Separator className="my-6" />
+
+        {/* Appearance */}
+        <SidebarGroup>
+          <SidebarGroupLabel>Appearance</SidebarGroupLabel>
+          <SidebarGroupContent>
+            <div>
+              <label className="block text-sm font-medium mb-2">Point Color</label>
+              <input
+                type="color"
+                value={config.pointColor}
+                onChange={(e) => setConfig({ pointColor: e.target.value })}
+                className="h-8 w-12 p-0 bg-transparent border border-gray-600 rounded"
+                aria-label="Point Color"
+              />
+            </div>
+          </SidebarGroupContent>
+        </SidebarGroup>
           </SidebarGroupContent>
         </SidebarGroup>
 

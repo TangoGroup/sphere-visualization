@@ -50,6 +50,7 @@ export function useMicAnalyzer(options: MicAnalyzerOptions = {}): MicAnalyzer {
     setIsActive(false);
   }, []);
 
+  const lastVolumeRef = useRef<number>(0);
   const tick = useCallback(() => {
     const analyser = analyserRef.current;
     if (!analyser) return;
@@ -68,7 +69,11 @@ export function useMicAnalyzer(options: MicAnalyzerOptions = {}): MicAnalyzer {
 
     // Apply soft scaling to 0..1
     const normalized = Math.min(1, rms * 1.6);
-    setVolume(normalized);
+    // Exponential moving average for stability (visual smoothing)
+    const alpha = 0.35; // UI can additionally smooth via config.micSmoothing; this is baseline
+    const smoothed = lastVolumeRef.current * (1 - alpha) + normalized * alpha;
+    lastVolumeRef.current = smoothed;
+    setVolume(smoothed);
 
     rafRef.current = requestAnimationFrame(tick);
   }, []);

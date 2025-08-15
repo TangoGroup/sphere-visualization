@@ -20,6 +20,7 @@ export interface SphereWaveformProps {
   randomishAmount?: number; // 0..1
   enableSineNoise?: boolean;
   sineAmount?: number; // 0..1
+  randomishSpeed?: number; // time multiplier for randomish noise
   pulseSize?: number; // 0..1, controls amplitude of pulse state
   // New toggle-based controls
   enableSpin?: boolean;
@@ -38,6 +39,8 @@ export interface SphereWaveformProps {
   // Sine noise specific controls
   sineSpeed?: number; // temporal frequency multiplier
   sineScale?: number; // scales aSeed phase contribution
+  // Appearance
+  pointColor?: string; // hex
 }
 
 interface Uniforms {
@@ -69,6 +72,8 @@ interface Uniforms {
   // Sine noise uniforms
   uSineSpeed: { value: number };
   uSineScale: { value: number };
+  // Appearance
+  uColor: { value: THREE.Color };
 }
 
 const vertexShader = /* glsl */ `
@@ -208,6 +213,7 @@ uniform int uMaskEnabled;
 uniform float uMaskRadiusPx;
 uniform float uMaskFeatherPx;
 uniform int uMaskInvert;
+uniform vec3 uColor;
 varying vec2 vNdc;
 void main() {
   vec2 uv = gl_PointCoord * 2.0 - 1.0;
@@ -222,7 +228,7 @@ void main() {
     float mask = (uMaskInvert > 0) ? (1.0 - inside) : inside;
     alpha *= clamp(mask, 0.0, 1.0);
   }
-  gl_FragColor = vec4(vec3(1.0), alpha);
+  gl_FragColor = vec4(uColor, alpha);
 }
 `;
 
@@ -254,6 +260,7 @@ export function SphereWaveform({
   maskInvert = false,
   sineSpeed = 1.7,
   sineScale = 1.0,
+  pointColor = '#ffffff',
 }: SphereWaveformProps) {
   const uniformsRef = useRef<Uniforms[] | null>(null);
   const prevNowRef = useRef<number | null>(null);
@@ -300,6 +307,7 @@ export function SphereWaveform({
         uMaskInvert: { value: maskInvert ? 1 : 0 },
         uSineSpeed: { value: sineSpeed },
         uSineScale: { value: sineScale },
+        uColor: { value: new THREE.Color(pointColor) },
       })
     }
     // Shrink
@@ -361,6 +369,8 @@ export function SphereWaveform({
       // Sine noise
       u.uSineSpeed.value = sineSpeed;
       u.uSineScale.value = sineScale;
+      // Color
+      u.uColor.value.set(pointColor);
     }
   });
 
