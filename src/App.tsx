@@ -9,7 +9,7 @@ import { SidebarProvider, SidebarInset } from '@/components/ui/sidebar';
 import { useMicAnalyzer } from '@/hooks/useMicAnalyzer';
 import { useEffect } from 'react';
 
-function Scene({ volume, vertexCount, pointSize, shellCount, freezeTime, advanceCount, enableRandomishNoise, randomishAmount, enableSineNoise, sineAmount, pulseSize, enableSpin, spinSpeed, spinAxisX, spinAxisY, maskEnabled, maskRadius, maskFeather, maskInvert, sineSpeed, sineScale, randomishSpeed, pointColor, enableRippleNoise, rippleAmount, rippleSpeed, rippleScale, enableSurfaceRipple, surfaceRippleAmount, surfaceRippleSpeed, surfaceRippleScale }: { 
+function Scene({ volume, vertexCount, pointSize, shellCount, freezeTime, advanceCount, enableRandomishNoise, randomishAmount, enableSineNoise, sineAmount, pulseSize, enableSpin, spinSpeed, spinAxisX, spinAxisY, maskEnabled, maskRadius, maskFeather, maskInvert, sineSpeed, sineScale, randomishSpeed, pointColor, enableRippleNoise, rippleAmount, rippleSpeed, rippleScale, enableSurfaceRipple, surfaceRippleAmount, surfaceRippleSpeed, surfaceRippleScale, enableArcs, arcMaxCount, arcSpawnRate, arcDuration, arcSpeed, arcSpanDeg, arcThickness, arcFeather, arcBrightness }: { 
   volume: number; 
   vertexCount: number; 
   pointSize: number; 
@@ -41,6 +41,15 @@ function Scene({ volume, vertexCount, pointSize, shellCount, freezeTime, advance
   surfaceRippleAmount: number;
   surfaceRippleSpeed: number;
   surfaceRippleScale: number;
+  enableArcs: boolean;
+  arcMaxCount: number;
+  arcSpawnRate: number;
+  arcDuration: number;
+  arcSpeed: number;
+  arcSpanDeg: number;
+  arcThickness: number;
+  arcFeather: number;
+  arcBrightness: number;
 }) {
   const bg = useMemo(() => new THREE.Color('#0b0f13'), []);
   return (
@@ -80,6 +89,15 @@ function Scene({ volume, vertexCount, pointSize, shellCount, freezeTime, advance
           surfaceRippleAmount={surfaceRippleAmount}
           surfaceRippleSpeed={surfaceRippleSpeed}
           surfaceRippleScale={surfaceRippleScale}
+          enableArcs={enableArcs}
+          arcMaxCount={arcMaxCount}
+          arcSpawnRate={arcSpawnRate}
+          arcDuration={arcDuration}
+          arcSpeed={arcSpeed}
+          arcSpanDeg={arcSpanDeg}
+          arcThickness={arcThickness}
+          arcFeather={arcFeather}
+          arcBrightness={arcBrightness}
         />
       </Suspense>
       <OrbitControls enablePan={false} enableDamping dampingFactor={0.08} />
@@ -143,6 +161,15 @@ function App() {
               surfaceRippleAmount={config.surfaceRippleAmount}
               surfaceRippleSpeed={config.surfaceRippleSpeed}
               surfaceRippleScale={config.surfaceRippleScale}
+              enableArcs={config.enableArcs}
+              arcMaxCount={config.arcMaxCount}
+              arcSpawnRate={config.arcSpawnRate}
+              arcDuration={config.arcDuration}
+              arcSpeed={config.arcSpeed}
+              arcSpanDeg={config.arcSpanDeg}
+              arcThickness={config.arcThickness}
+              arcFeather={config.arcFeather}
+              arcBrightness={config.arcBrightness}
             />
           </Canvas>
         </div>

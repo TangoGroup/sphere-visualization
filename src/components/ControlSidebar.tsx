@@ -141,6 +141,121 @@ export function ControlSidebar() {
           )}
         <Separator className="my-6" />
 
+        {/* Arcs (Ejections) */}
+        <SidebarGroup>
+          <SidebarGroupLabel>Arcs</SidebarGroupLabel>
+          <SidebarGroupContent>
+            <div className="flex items-center space-x-2">
+              <Checkbox
+                id="enable-arcs"
+                checked={config.enableArcs}
+                onCheckedChange={(checked) => setConfig({ enableArcs: checked as boolean })}
+              />
+              <label htmlFor="enable-arcs" className="text-sm font-medium">Enable</label>
+            </div>
+            {config.enableArcs && (
+              <>
+                <div>
+                  <label className="block text-sm font-medium mb-2">Max Count</label>
+                  <Slider
+                    value={[config.arcMaxCount]}
+                    onValueChange={([value]) => setConfig({ arcMaxCount: Math.round(value) })}
+                    min={0}
+                    max={8}
+                    step={1}
+                    className="w-full"
+                  />
+                  <div className="text-right text-sm text-gray-400 mt-1">{config.arcMaxCount}</div>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-2">Spawn Rate (arcs/sec)</label>
+                  <Slider
+                    value={[config.arcSpawnRate]}
+                    onValueChange={([value]) => setConfig({ arcSpawnRate: value })}
+                    min={0}
+                    max={2}
+                    step={0.05}
+                    className="w-full"
+                  />
+                  <div className="text-right text-sm text-gray-400 mt-1">{config.arcSpawnRate.toFixed(2)}</div>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-2">Duration (s)</label>
+                  <Slider
+                    value={[config.arcDuration]}
+                    onValueChange={([value]) => setConfig({ arcDuration: value })}
+                    min={0.5}
+                    max={10}
+                    step={0.1}
+                    className="w-full"
+                  />
+                  <div className="text-right text-sm text-gray-400 mt-1">{config.arcDuration.toFixed(1)}s</div>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-2">Speed (rad/s)</label>
+                  <Slider
+                    value={[config.arcSpeed]}
+                    onValueChange={([value]) => setConfig({ arcSpeed: value })}
+                    min={0.1}
+                    max={5.0}
+                    step={0.1}
+                    className="w-full"
+                  />
+                  <div className="text-right text-sm text-gray-400 mt-1">{config.arcSpeed.toFixed(1)}</div>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-2">Span (deg)</label>
+                  <Slider
+                    value={[config.arcSpanDeg]}
+                    onValueChange={([value]) => setConfig({ arcSpanDeg: value })}
+                    min={10}
+                    max={180}
+                    step={1}
+                    className="w-full"
+                  />
+                  <div className="text-right text-sm text-gray-400 mt-1">{config.arcSpanDeg.toFixed(0)}°</div>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-2">Thickness</label>
+                  <Slider
+                    value={[config.arcThickness]}
+                    onValueChange={([value]) => setConfig({ arcThickness: value })}
+                    min={0}
+                    max={0.25}
+                    step={0.005}
+                    className="w-full"
+                  />
+                  <div className="text-right text-sm text-gray-400 mt-1">{config.arcThickness.toFixed(3)}</div>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-2">Feather</label>
+                  <Slider
+                    value={[config.arcFeather]}
+                    onValueChange={([value]) => setConfig({ arcFeather: value })}
+                    min={0}
+                    max={0.25}
+                    step={0.005}
+                    className="w-full"
+                  />
+                  <div className="text-right text-sm text-gray-400 mt-1">{config.arcFeather.toFixed(3)}</div>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-2">Brightness</label>
+                  <Slider
+                    value={[config.arcBrightness]}
+                    onValueChange={([value]) => setConfig({ arcBrightness: value })}
+                    min={0}
+                    max={3}
+                    step={0.05}
+                    className="w-full"
+                  />
+                  <div className="text-right text-sm text-gray-400 mt-1">{config.arcBrightness.toFixed(2)}×</div>
+                </div>
+              </>
+            )}
+          </SidebarGroupContent>
+        </SidebarGroup>
+
         {/* Appearance */}
         <SidebarGroup>
           <SidebarGroupLabel>Appearance</SidebarGroupLabel>
