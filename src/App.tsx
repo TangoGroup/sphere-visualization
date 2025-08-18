@@ -9,7 +9,7 @@ import { SidebarProvider, SidebarInset } from '@/components/ui/sidebar';
 import { useMicAnalyzer } from '@/hooks/useMicAnalyzer';
 import { useEffect } from 'react';
 
-function Scene({ volume, vertexCount, pointSize, shellCount, freezeTime, advanceCount, enableRandomishNoise, randomishAmount, enableSineNoise, sineAmount, pulseSize, enableSpin, spinSpeed, spinAxisX, spinAxisY, maskEnabled, maskRadius, maskFeather, maskInvert, sineSpeed, sineScale, randomishSpeed, pointColor, enableRippleNoise, rippleAmount, rippleSpeed, rippleScale, enableSurfaceRipple, surfaceRippleAmount, surfaceRippleSpeed, surfaceRippleScale, enableArcs, arcMaxCount, arcSpawnRate, arcDuration, arcSpeed, arcSpanDeg, arcThickness, arcFeather, arcBrightness, arcAltitude }: { 
+function Scene({ volume, vertexCount, pointSize, shellCount, freezeTime, advanceCount, enableRandomishNoise, randomishAmount, enableSineNoise, sineAmount, pulseSize, enableSpin, spinSpeed, spinAxisX, spinAxisY, maskEnabled, maskRadius, maskFeather, maskInvert, sineSpeed, sineScale, randomishSpeed, pointColor, backgroundTheme, enableRippleNoise, rippleAmount, rippleSpeed, rippleScale, enableSurfaceRipple, surfaceRippleAmount, surfaceRippleSpeed, surfaceRippleScale, enableArcs, arcMaxCount, arcSpawnRate, arcDuration, arcSpeed, arcSpanDeg, arcThickness, arcFeather, arcBrightness, arcAltitude }: { 
   volume: number; 
   vertexCount: number; 
   pointSize: number; 
@@ -33,6 +33,7 @@ function Scene({ volume, vertexCount, pointSize, shellCount, freezeTime, advance
   sineScale: number;
   randomishSpeed: number;
   pointColor: string;
+  backgroundTheme: 'dark' | 'light';
   enableRippleNoise: boolean;
   rippleAmount: number;
   rippleSpeed: number;
@@ -52,7 +53,8 @@ function Scene({ volume, vertexCount, pointSize, shellCount, freezeTime, advance
   arcBrightness: number;
   arcAltitude: number;
 }) {
-  const bg = useMemo(() => new THREE.Color('#0b0f13'), []);
+  const bg = useMemo(() => new THREE.Color(backgroundTheme === 'dark' ? '#0b0f13' : '#ffffff'), [backgroundTheme]);
+  const blendingMode = backgroundTheme === 'light' ? 'normal' : 'additive' as const;
   return (
     <>
       <color attach="background" args={[bg]} />
@@ -82,6 +84,8 @@ function Scene({ volume, vertexCount, pointSize, shellCount, freezeTime, advance
           sineSpeed={sineSpeed}
           sineScale={sineScale}
           pointColor={pointColor}
+          blendingMode={blendingMode}
+          
           enableRippleNoise={enableRippleNoise}
           rippleAmount={rippleAmount}
           rippleSpeed={rippleSpeed}
@@ -155,6 +159,7 @@ function App() {
               sineSpeed={config.sineSpeed}
               sineScale={config.sineScale}
               pointColor={config.pointColor}
+              backgroundTheme={config.backgroundTheme}
               enableRippleNoise={config.enableRippleNoise}
               rippleAmount={config.rippleAmount}
               rippleSpeed={config.rippleSpeed}

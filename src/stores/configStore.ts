@@ -124,14 +124,20 @@ type ConfigV14 = Omit<ConfigV13, 'version'> & {
   arcAltitude: number; // 0..0.2 radial puff amount
 }
 
+type ConfigV15 = Omit<ConfigV14, 'version'> & {
+  version: 15;
+  // Background theme for canvas
+  backgroundTheme: 'dark' | 'light';
+}
+
 // Current configuration interface
-export interface Config extends ConfigV14 {
-  version: 14;
+export interface Config extends ConfigV15 {
+  version: 15;
 }
 
 // Default configuration
 const defaultConfig: Config = {
-  version: 14,
+  version: 15,
   // Global controls
   vertexCount: 400,
   pointSize: 0.04,
@@ -165,6 +171,7 @@ const defaultConfig: Config = {
   
   // Appearance
   pointColor: '#ffffff',
+  backgroundTheme: 'dark',
   
   // Microphone
   micVolume: 1.0,
@@ -210,7 +217,7 @@ function migrateV1ToV2(config: ConfigV1): ConfigV2 {
   };
 }
 
-function migrateConfig(config: any): Config {
+function migrateConfig(config: any): ConfigV14 | ConfigV15 {
   if (!config || typeof config !== 'object') {
     return defaultConfig;
   }
@@ -385,7 +392,9 @@ function migrateConfig(config: any): Config {
     case 13:
       return migrateV13ToV14(config as ConfigV13);
     case 14:
-      return config as Config;
+      return config as ConfigV14;
+    case 15:
+      return config as ConfigV15;
     default:
       console.warn(`Unknown config version ${version}, using defaults`);
       return defaultConfig;
@@ -514,6 +523,29 @@ function migrateV13ToV14(config: ConfigV13): ConfigV14 {
   } as unknown as ConfigV14;
 }
 
+function migrateV14ToV15(config: ConfigV14): ConfigV15 {
+  return {
+    ...config,
+    version: 15,
+    backgroundTheme: 'dark',
+  } as unknown as ConfigV15;
+}
+
+function migrateToLatest(config: any): Config {
+  const migrated = migrateConfig(config);
+  if (!migrated || typeof migrated !== 'object') {
+    return defaultConfig;
+  }
+  if ((migrated as ConfigV14).version === 14) {
+    return migrateV14ToV15(migrated as ConfigV14) as Config;
+  }
+  if ((migrated as ConfigV15).version === 15) {
+    return migrated as Config;
+  }
+  // Fallback safety
+  return defaultConfig;
+}
+
 // Zustand store
 export const useConfigStore = create<{
   config: Config;
@@ -544,7 +576,7 @@ export const useConfigStore = create<{
       importConfig: (configString: string) => {
         try {
           const parsed = JSON.parse(configString);
-          const migrated = migrateConfig(parsed);
+          const migrated = migrateToLatest(parsed);
           set({ config: migrated });
           return true;
         } catch (error) {
@@ -559,7 +591,7 @@ export const useConfigStore = create<{
       onRehydrateStorage: () => (state) => {
         if (state) {
           // Migrate any stored config on rehydration
-          state.config = migrateConfig(state.config);
+          state.config = migrateToLatest(state.config);
         }
       },
     }

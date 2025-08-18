@@ -7,6 +7,8 @@ import { Slider } from './ui/slider';
 import { Separator } from './ui/separator';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from './ui/accordion';
 import { Sidebar, SidebarContent, SidebarHeader, SidebarGroup, SidebarGroupContent, SidebarGroupLabel } from './ui/sidebar';
+import BrandColorPicker from './BrandColorPicker';
+
 
 export function ControlSidebar() {
   const { config, setConfig, exportConfig, importConfig } = useConfigStore();
@@ -272,15 +274,27 @@ export function ControlSidebar() {
         <SidebarGroup>
           <SidebarGroupLabel>Appearance</SidebarGroupLabel>
           <SidebarGroupContent>
-            <div>
-              <label className="block text-sm font-medium mb-2">Point Color</label>
-              <input
-                type="color"
-                value={config.pointColor}
-                onChange={(e) => setConfig({ pointColor: e.target.value })}
-                className="h-8 w-12 p-0 bg-transparent border border-gray-600 rounded"
-                aria-label="Point Color"
-              />
+            <BrandColorPicker
+              value={config.pointColor}
+              onChange={(hex) => setConfig({ pointColor: hex })}
+              label="Point Color"
+            />
+            <div className="mt-4">
+              <label className="block text-sm font-medium mb-2">Background</label>
+              <div className="inline-flex gap-2">
+                <button
+                  className={`h-8 rounded px-3 text-sm border ${config.backgroundTheme === 'dark' ? 'bg-primary text-primary-foreground border-transparent' : 'border-gray-600'}`}
+                  onClick={() => setConfig({ backgroundTheme: 'dark' })}
+                >
+                  Dark
+                </button>
+                <button
+                  className={`h-8 rounded px-3 text-sm border ${config.backgroundTheme === 'light' ? 'bg-primary text-primary-foreground border-transparent' : 'border-gray-600'}`}
+                  onClick={() => setConfig({ backgroundTheme: 'light' })}
+                >
+                  Light
+                </button>
+              </div>
             </div>
           </SidebarGroupContent>
         </SidebarGroup>

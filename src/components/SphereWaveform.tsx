@@ -61,6 +61,8 @@ export interface SphereWaveformProps {
   arcFeather?: number;
   arcBrightness?: number;
   arcAltitude?: number;
+  // Rendering mode
+  blendingMode?: 'additive' | 'normal';
 }
 
 interface Uniforms {
@@ -420,6 +422,7 @@ export function SphereWaveform({
   arcFeather = 0.04,
   arcBrightness = 1.0,
   arcAltitude = 0.02,
+  blendingMode = 'additive',
 }: SphereWaveformProps) {
   const uniformsRef = useRef<Uniforms[] | null>(null);
   const prevNowRef = useRef<number | null>(null);
@@ -662,7 +665,7 @@ export function SphereWaveform({
             transparent
             depthWrite={false}
             depthTest={false}
-            blending={THREE.AdditiveBlending}
+            blending={blendingMode === 'additive' ? THREE.AdditiveBlending : THREE.NormalBlending}
           />
         </points>
       ))}
