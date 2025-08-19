@@ -8,10 +8,12 @@ import { Separator } from './ui/separator';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from './ui/accordion';
 import { Sidebar, SidebarContent, SidebarHeader, SidebarGroup, SidebarGroupContent, SidebarGroupLabel } from './ui/sidebar';
 import BrandColorPicker from './BrandColorPicker';
+import { useAnimationStore } from '@/stores/animationStore';
 
 
 export function ControlSidebar() {
   const { config, setConfig, exportConfig, importConfig } = useConfigStore();
+  const { addOrUpdateDraftProp, draft } = useAnimationStore();
   // Initialize microphone analyzer if needed later
   // const mic = useMicAnalyzer({ smoothingTimeConstant: 0.85, fftSize: 1024 });
 
@@ -117,7 +119,12 @@ export function ControlSidebar() {
               step={0.01}
               className="w-full"
             />
-            <div className="text-right text-sm text-gray-400 mt-1">{config.size.toFixed(2)}×</div>
+            <div className="flex items-center justify-between mt-1">
+              <div className="text-sm text-gray-400">{config.size.toFixed(2)}×</div>
+              <Button size="sm" variant="outline" disabled={!draft} onClick={() => { addOrUpdateDraftProp('size', config.size); }} title="Add size to active animation">
+                ◆ Apply
+              </Button>
+            </div>
           </div>
 
           <div>

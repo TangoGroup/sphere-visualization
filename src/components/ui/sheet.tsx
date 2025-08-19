@@ -46,13 +46,17 @@ function SheetContent({
   className,
   children,
   side = "right",
+  showOverlay = true,
+  dismissible = true,
   ...props
 }: React.ComponentProps<typeof SheetPrimitive.Content> & {
   side?: "top" | "right" | "bottom" | "left"
+  showOverlay?: boolean
+  dismissible?: boolean
 }) {
   return (
     <SheetPortal>
-      <SheetOverlay />
+      {showOverlay ? <SheetOverlay /> : null}
       <SheetPrimitive.Content
         data-slot="sheet-content"
         className={cn(
@@ -67,6 +71,8 @@ function SheetContent({
             "data-[state=closed]:slide-out-to-bottom data-[state=open]:slide-in-from-bottom inset-x-0 bottom-0 h-auto border-t",
           className
         )}
+        onEscapeKeyDown={dismissible ? undefined : (e) => e.preventDefault()}
+        onPointerDownOutside={(e) => { /* always prevent background capture */ e.preventDefault(); }}
         {...props}
       >
         {children}

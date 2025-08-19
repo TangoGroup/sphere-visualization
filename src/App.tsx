@@ -6,6 +6,8 @@ import SphereWaveform from './components/SphereWaveform';
 import { ControlSidebar } from './components/ControlSidebar';
 import { useConfigStore } from './stores/configStore';
 import { SidebarProvider, SidebarInset } from '@/components/ui/sidebar';
+import AnimationSidebar from '@/components/AnimationSidebar';
+import { useAnimationRunner } from '@/hooks/useAnimationRunner';
 import { useMicAnalyzer } from '@/hooks/useMicAnalyzer';
 import { useEffect } from 'react';
 
@@ -124,6 +126,7 @@ function Scene({ volume, vertexCount, pointSize, shellCount, freezeTime, advance
 function App() {
   const { config } = useConfigStore();
   const mic = useMicAnalyzer({ smoothingTimeConstant: 0.85, fftSize: 1024 });
+  useAnimationRunner();
 
   useEffect(() => {
     if (config.micEnabled) {
@@ -196,6 +199,7 @@ function App() {
             />
           </Canvas>
         </div>
+        <AnimationSidebar />
       </SidebarInset>
     </SidebarProvider>
   );
