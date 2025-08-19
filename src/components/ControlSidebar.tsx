@@ -9,6 +9,7 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from './
 import { Sidebar, SidebarContent, SidebarHeader, SidebarGroup, SidebarGroupContent, SidebarGroupLabel } from './ui/sidebar';
 import BrandColorPicker from './BrandColorPicker';
 import { useAnimationStore } from '@/stores/animationStore';
+import { Diamond } from 'lucide-react';
 
 
 export function ControlSidebar() {
@@ -104,7 +105,12 @@ export function ControlSidebar() {
               step={0.01}
               className="w-full"
             />
-            <div className="text-right text-sm text-gray-400 mt-1">{config.volume.toFixed(2)}</div>
+            <div className="flex items-center justify-between mt-1">
+              <div className="text-sm text-gray-400">{config.volume.toFixed(2)}</div>
+              <Button size="icon" variant="outline" disabled={!draft} onClick={() => { addOrUpdateDraftProp('volume', config.volume); }} title="Add effect power to active animation">
+                <Diamond className="text-orange-400" />
+              </Button>
+            </div>
           </div>
 
           <Separator className="my-4" />
@@ -114,15 +120,15 @@ export function ControlSidebar() {
             <Slider
               value={[config.size]}
               onValueChange={([value]) => setConfig({ size: value })}
-              min={0.2}
+              min={0}
               max={3}
               step={0.01}
               className="w-full"
             />
             <div className="flex items-center justify-between mt-1">
               <div className="text-sm text-gray-400">{config.size.toFixed(2)}×</div>
-              <Button size="sm" variant="outline" disabled={!draft} onClick={() => { addOrUpdateDraftProp('size', config.size); }} title="Add size to active animation">
-                ◆ Apply
+              <Button size="icon" variant="outline" disabled={!draft} onClick={() => { addOrUpdateDraftProp('size', config.size); }} title="Add size to active animation">
+                <Diamond className="text-orange-400" />
               </Button>
             </div>
           </div>
@@ -137,7 +143,12 @@ export function ControlSidebar() {
               step={0.01}
               className="w-full"
             />
-            <div className="text-right text-sm text-gray-400 mt-1">{config.opacity.toFixed(2)}</div>
+            <div className="flex items-center justify-between mt-1">
+              <div className="text-sm text-gray-400">{config.opacity.toFixed(2)}</div>
+              <Button size="icon" variant="outline" disabled={!draft} onClick={() => { addOrUpdateDraftProp('opacity', config.opacity); }} title="Add opacity to active animation">
+                <Diamond className="text-orange-400" />
+              </Button>
+            </div>
           </div>
 
           <div>
@@ -150,7 +161,12 @@ export function ControlSidebar() {
               step={1}
               className="w-full"
             />
-            <div className="text-right text-sm text-gray-400 mt-1">{config.rotationX.toFixed(0)}°</div>
+            <div className="flex items-center justify-between mt-1">
+              <div className="text-sm text-gray-400">{config.rotationX.toFixed(0)}°</div>
+              <Button size="icon" variant="outline" disabled={!draft} onClick={() => { addOrUpdateDraftProp('rotationX', config.rotationX); }} title="Add rotation X to active animation">
+                <Diamond className="text-orange-400" />
+              </Button>
+            </div>
           </div>
 
           <div>
@@ -163,7 +179,12 @@ export function ControlSidebar() {
               step={1}
               className="w-full"
             />
-            <div className="text-right text-sm text-gray-400 mt-1">{config.rotationY.toFixed(0)}°</div>
+            <div className="flex items-center justify-between mt-1">
+              <div className="text-sm text-gray-400">{config.rotationY.toFixed(0)}°</div>
+              <Button size="icon" variant="outline" disabled={!draft} onClick={() => { addOrUpdateDraftProp('rotationY', config.rotationY); }} title="Add rotation Y to active animation">
+                <Diamond className="text-orange-400" />
+              </Button>
+            </div>
           </div>
 
           <div>
@@ -176,7 +197,12 @@ export function ControlSidebar() {
               step={1}
               className="w-full"
             />
-            <div className="text-right text-sm text-gray-400 mt-1">{config.rotationZ.toFixed(0)}°</div>
+            <div className="flex items-center justify-between mt-1">
+              <div className="text-sm text-gray-400">{config.rotationZ.toFixed(0)}°</div>
+              <Button size="icon" variant="outline" disabled={!draft} onClick={() => { addOrUpdateDraftProp('rotationZ', config.rotationZ); }} title="Add rotation Z to active animation">
+                <Diamond className="text-orange-400" />
+              </Button>
+            </div>
           </div>
           
           <div className="flex items-center space-x-2">
