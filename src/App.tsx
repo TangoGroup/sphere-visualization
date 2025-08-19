@@ -203,7 +203,7 @@ function App() {
             />
             <OrbitControls ref={controlsRef} enablePan={false} enableDamping dampingFactor={0.08} />
           </Canvas>
-          <div className="absolute right-3 top-3 z-10">
+          <div className="absolute left-3 top-3 z-20">
             <Button size="sm" variant="outline" onClick={() => controlsRef.current?.reset()}>
               Reset View
             </Button>
