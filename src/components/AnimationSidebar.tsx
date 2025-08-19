@@ -102,7 +102,7 @@ export function AnimationSidebar() {
         </SidebarGroup>
 
         <Sheet modal={false} open={!!editing} onOpenChange={() => { /* ignore outside/esc close; use Save/Cancel */ }}>
-          <SheetContent side="right" showOverlay={false} dismissible={false}>
+          <SheetContent side="right" showOverlay={false} dismissible={false} onClose={discardDraft}>
             <SheetHeader>
               <SheetTitle>Animation Editor</SheetTitle>
             </SheetHeader>

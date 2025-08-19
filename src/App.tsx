@@ -1,4 +1,4 @@
-import { useMemo, Suspense, useEffect } from 'react';
+import { useMemo, Suspense, useEffect, useRef } from 'react';
 import { Canvas } from '@react-three/fiber';
 import { OrbitControls } from '@react-three/drei';
 import * as THREE from 'three';
@@ -6,6 +6,8 @@ import SphereWaveform from './components/SphereWaveform';
 import { ControlSidebar } from './components/ControlSidebar';
 import { useConfigStore } from './stores/configStore';
 import { SidebarProvider, SidebarInset } from '@/components/ui/sidebar';
+import { Button } from '@/components/ui/button';
+import type { OrbitControls as OrbitControlsImpl } from 'three-stdlib';
 import AnimationSidebar from '@/components/AnimationSidebar';
 import { useAnimationRunner } from '@/hooks/useAnimationRunner';
 import { useAnimationStore } from '@/stores/animationStore';
@@ -118,7 +120,6 @@ function Scene({ volume, vertexCount, pointSize, shellCount, freezeTime, advance
           arcAltitude={arcAltitude}
         />
       </Suspense>
-      <OrbitControls enablePan={false} enableDamping dampingFactor={0.08} />
     </>
   );
 }
@@ -129,6 +130,7 @@ function App() {
   useAnimationRunner();
   const ensureDefaultAnimation = useAnimationStore(s => s.ensureDefaultAnimation);
   useEffect(() => { ensureDefaultAnimation(); }, [ensureDefaultAnimation]);
+  const controlsRef = useRef<OrbitControlsImpl | null>(null);
 
   useEffect(() => {
     if (config.micEnabled) {
@@ -148,7 +150,7 @@ function App() {
     <SidebarProvider>
       <ControlSidebar />
       <SidebarInset>
-        <div className="flex-1 h-screen">
+        <div className="flex-1 h-screen relative">
           <Canvas dpr={[1, 2]} camera={{ position: [0, 0, 3], fov: 60 }}>
             <Scene
               volume={effectiveVolume}
@@ -199,7 +201,13 @@ function App() {
               arcBrightness={config.arcBrightness}
               arcAltitude={config.arcAltitude}
             />
+            <OrbitControls ref={controlsRef} enablePan={false} enableDamping dampingFactor={0.08} />
           </Canvas>
+          <div className="absolute right-3 top-3 z-10">
+            <Button size="sm" variant="outline" onClick={() => controlsRef.current?.reset()}>
+              Reset View
+            </Button>
+          </div>
         </div>
         <AnimationSidebar />
       </SidebarInset>

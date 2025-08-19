@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { useAnimationStore } from '@/stores/animationStore';
 import { useConfigStore, type Config } from '@/stores/configStore';
+import * as THREE from 'three';
 
 type Easer = (t: number) => number;
 
@@ -61,6 +62,7 @@ export function useAnimationRunner() {
     const startConfig = getConfig;
     const from: Partial<Config> = {};
     const to: Partial<Config> = {};
+    const colorPairs: Record<string, { from: THREE.Color; to: THREE.Color }> = {};
     for (const k in anim.to) {
       const key = k as keyof Config;
       const target = anim.to[key];
@@ -68,8 +70,14 @@ export function useAnimationRunner() {
       if (typeof target === 'number' && typeof current === 'number') {
         (from as any)[key] = current;
         (to as any)[key] = target;
+      } else if (key === 'pointColor' && typeof target === 'string' && typeof current === 'string') {
+        try {
+          colorPairs[key] = { from: new THREE.Color(current), to: new THREE.Color(target) };
+        } catch {
+          // ignore invalid colors
+        }
       }
-      // Non-numeric keys ignored in this minimal runner (booleans/colors skipped for now)
+      // Other non-numeric keys are ignored in this runner
     }
 
     const ease = getEaser(anim.ease);
@@ -88,6 +96,11 @@ export function useAnimationRunner() {
         const a = (from as any)[key];
         const b = (to as any)[key];
         (updates as any)[key] = a + (b - a) * te;
+      }
+      for (const k in colorPairs) {
+        const pair = colorPairs[k];
+        const c = pair.from.clone().lerp(pair.to, te);
+        (updates as any)[k] = `#${c.getHexString()}`;
       }
       setConfig(updates);
       if (t < 1) {
