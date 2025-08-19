@@ -14,14 +14,16 @@ import { Diamond } from 'lucide-react';
 
 export function ControlSidebar() {
   const { config, setConfig, exportConfig, importConfig } = useConfigStore();
-  const { addOrUpdateDraftProp, draft } = useAnimationStore();
+  const { addOrUpdateDraftProp, draft, exportAnimations, importAnimations } = useAnimationStore();
   // Initialize microphone analyzer if needed later
   // const mic = useMicAnalyzer({ smoothingTimeConstant: 0.85, fftSize: 1024 });
 
   const handleCopyConfig = async () => {
     try {
       const exported = exportConfig();
-      await navigator.clipboard.writeText(exported);
+      const anims = exportAnimations();
+      const bundle = JSON.stringify({ config: JSON.parse(exported), animations: JSON.parse(anims) }, null, 2);
+      await navigator.clipboard.writeText(bundle);
       alert('Config copied to clipboard!');
     } catch (error) {
       console.error('Failed to copy to clipboard:', error);
@@ -35,8 +37,22 @@ export function ControlSidebar() {
         alert('Clipboard is empty or unavailable.');
         return;
       }
-      if (importConfig(text)) {
+      // Try to parse as combined bundle first
+      let handled = false;
+      try {
+        const parsed = JSON.parse(text);
+        if (parsed && typeof parsed === 'object' && parsed.config && parsed.animations) {
+          const okConfig = importConfig(JSON.stringify(parsed.config));
+          const okAnims = importAnimations(JSON.stringify(parsed.animations));
+          handled = okConfig && okAnims;
+        }
+      } catch {}
+      if (!handled && importConfig(text)) {
         alert('Config imported successfully!');
+      } else if (!handled && importAnimations(text)) {
+        alert('Animations imported successfully!');
+      } else if (handled) {
+        alert('Config + animations imported successfully!');
       } else {
         alert('Failed to import config. Please check the JSON format.');
       }
@@ -66,7 +82,12 @@ export function ControlSidebar() {
               step={50}
               className="w-full"
             />
-            <div className="text-right text-sm text-gray-400 mt-1">{config.vertexCount}</div>
+            <div className="flex items-center justify-between mt-1">
+              <div className="text-sm text-gray-400">{config.vertexCount}</div>
+              <Button size="icon" variant="outline" disabled={!draft} onClick={() => { addOrUpdateDraftProp('vertexCount', config.vertexCount); }} title="Add vertex count to active animation">
+                <Diamond className="text-orange-400" />
+              </Button>
+            </div>
           </div>
           
           <div>
@@ -79,7 +100,12 @@ export function ControlSidebar() {
               step={0.002}
               className="w-full"
             />
-            <div className="text-right text-sm text-gray-400 mt-1">{config.pointSize.toFixed(3)}</div>
+            <div className="flex items-center justify-between mt-1">
+              <div className="text-sm text-gray-400">{config.pointSize.toFixed(3)}</div>
+              <Button size="icon" variant="outline" disabled={!draft} onClick={() => { addOrUpdateDraftProp('pointSize', config.pointSize); }} title="Add point size to active animation">
+                <Diamond className="text-orange-400" />
+              </Button>
+            </div>
           </div>
           
           <div>
@@ -267,7 +293,12 @@ export function ControlSidebar() {
                     step={1}
                     className="w-full"
                   />
-                  <div className="text-right text-sm text-gray-400 mt-1">{config.arcMaxCount}</div>
+                  <div className="flex items-center justify-between mt-1">
+                    <div className="text-sm text-gray-400">{config.arcMaxCount}</div>
+                    <Button size="icon" variant="outline" disabled={!draft} onClick={() => { addOrUpdateDraftProp('arcMaxCount', config.arcMaxCount); }} title="Add arc max count to active animation">
+                      <Diamond className="text-orange-400" />
+                    </Button>
+                  </div>
                 </div>
                 <div>
                   <label className="block text-sm font-medium mb-2">Spawn Rate (arcs/sec)</label>
@@ -279,7 +310,12 @@ export function ControlSidebar() {
                     step={0.05}
                     className="w-full"
                   />
-                  <div className="text-right text-sm text-gray-400 mt-1">{config.arcSpawnRate.toFixed(2)}</div>
+                  <div className="flex items-center justify-between mt-1">
+                    <div className="text-sm text-gray-400">{config.arcSpawnRate.toFixed(2)}</div>
+                    <Button size="icon" variant="outline" disabled={!draft} onClick={() => { addOrUpdateDraftProp('arcSpawnRate', config.arcSpawnRate); }} title="Add arc spawn rate to active animation">
+                      <Diamond className="text-orange-400" />
+                    </Button>
+                  </div>
                 </div>
                 <div>
                   <label className="block text-sm font-medium mb-2">Duration (s)</label>
@@ -291,7 +327,12 @@ export function ControlSidebar() {
                     step={0.1}
                     className="w-full"
                   />
-                  <div className="text-right text-sm text-gray-400 mt-1">{config.arcDuration.toFixed(1)}s</div>
+                  <div className="flex items-center justify-between mt-1">
+                    <div className="text-sm text-gray-400">{config.arcDuration.toFixed(1)}s</div>
+                    <Button size="icon" variant="outline" disabled={!draft} onClick={() => { addOrUpdateDraftProp('arcDuration', config.arcDuration); }} title="Add arc duration to active animation">
+                      <Diamond className="text-orange-400" />
+                    </Button>
+                  </div>
                 </div>
                 <div>
                   <label className="block text-sm font-medium mb-2">Speed (rad/s)</label>
@@ -303,7 +344,12 @@ export function ControlSidebar() {
                     step={0.1}
                     className="w-full"
                   />
-                  <div className="text-right text-sm text-gray-400 mt-1">{config.arcSpeed.toFixed(1)}</div>
+                  <div className="flex items-center justify-between mt-1">
+                    <div className="text-sm text-gray-400">{config.arcSpeed.toFixed(1)}</div>
+                    <Button size="icon" variant="outline" disabled={!draft} onClick={() => { addOrUpdateDraftProp('arcSpeed', config.arcSpeed); }} title="Add arc speed to active animation">
+                      <Diamond className="text-orange-400" />
+                    </Button>
+                  </div>
                 </div>
                 <div>
                   <label className="block text-sm font-medium mb-2">Span (deg)</label>
@@ -315,7 +361,12 @@ export function ControlSidebar() {
                     step={1}
                     className="w-full"
                   />
-                  <div className="text-right text-sm text-gray-400 mt-1">{config.arcSpanDeg.toFixed(0)}°</div>
+                  <div className="flex items-center justify-between mt-1">
+                    <div className="text-sm text-gray-400">{config.arcSpanDeg.toFixed(0)}°</div>
+                    <Button size="icon" variant="outline" disabled={!draft} onClick={() => { addOrUpdateDraftProp('arcSpanDeg', config.arcSpanDeg); }} title="Add arc span to active animation">
+                      <Diamond className="text-orange-400" />
+                    </Button>
+                  </div>
                 </div>
                 <div>
                   <label className="block text-sm font-medium mb-2">Thickness</label>
@@ -327,7 +378,12 @@ export function ControlSidebar() {
                     step={0.005}
                     className="w-full"
                   />
-                  <div className="text-right text-sm text-gray-400 mt-1">{config.arcThickness.toFixed(3)}</div>
+                  <div className="flex items-center justify-between mt-1">
+                    <div className="text-sm text-gray-400">{config.arcThickness.toFixed(3)}</div>
+                    <Button size="icon" variant="outline" disabled={!draft} onClick={() => { addOrUpdateDraftProp('arcThickness', config.arcThickness); }} title="Add arc thickness to active animation">
+                      <Diamond className="text-orange-400" />
+                    </Button>
+                  </div>
                 </div>
                 <div>
                   <label className="block text-sm font-medium mb-2">Feather</label>
@@ -339,7 +395,12 @@ export function ControlSidebar() {
                     step={0.005}
                     className="w-full"
                   />
-                  <div className="text-right text-sm text-gray-400 mt-1">{config.arcFeather.toFixed(3)}</div>
+                  <div className="flex items-center justify-between mt-1">
+                    <div className="text-sm text-gray-400">{config.arcFeather.toFixed(3)}</div>
+                    <Button size="icon" variant="outline" disabled={!draft} onClick={() => { addOrUpdateDraftProp('arcFeather', config.arcFeather); }} title="Add arc feather to active animation">
+                      <Diamond className="text-orange-400" />
+                    </Button>
+                  </div>
                 </div>
                 <div>
                   <label className="block text-sm font-medium mb-2">Brightness</label>
@@ -351,7 +412,12 @@ export function ControlSidebar() {
                     step={0.05}
                     className="w-full"
                   />
-                  <div className="text-right text-sm text-gray-400 mt-1">{config.arcBrightness.toFixed(2)}×</div>
+                  <div className="flex items-center justify-between mt-1">
+                    <div className="text-sm text-gray-400">{config.arcBrightness.toFixed(2)}×</div>
+                    <Button size="icon" variant="outline" disabled={!draft} onClick={() => { addOrUpdateDraftProp('arcBrightness', config.arcBrightness); }} title="Add arc brightness to active animation">
+                      <Diamond className="text-orange-400" />
+                    </Button>
+                  </div>
                 </div>
                 <div>
                   <label className="block text-sm font-medium mb-2">Altitude</label>
@@ -363,7 +429,12 @@ export function ControlSidebar() {
                     step={0.005}
                     className="w-full"
                   />
-                  <div className="text-right text-sm text-gray-400 mt-1">{config.arcAltitude.toFixed(3)}</div>
+                  <div className="flex items-center justify-between mt-1">
+                    <div className="text-sm text-gray-400">{config.arcAltitude.toFixed(3)}</div>
+                    <Button size="icon" variant="outline" disabled={!draft} onClick={() => { addOrUpdateDraftProp('arcAltitude', config.arcAltitude); }} title="Add arc altitude to active animation">
+                      <Diamond className="text-orange-400" />
+                    </Button>
+                  </div>
                 </div>
               </>
             )}
@@ -379,6 +450,11 @@ export function ControlSidebar() {
               onChange={(hex) => setConfig({ pointColor: hex })}
               label="Point Color"
             />
+            <div className="flex items-center justify-end mt-2">
+              <Button size="icon" variant="outline" disabled={!draft} onClick={() => { addOrUpdateDraftProp('pointColor', config.pointColor); }} title="Add color to active animation">
+                <Diamond className="text-orange-400" />
+              </Button>
+            </div>
             <div className="mt-4">
               <label className="block text-sm font-medium mb-2">Background</label>
               <div className="inline-flex gap-2">
@@ -425,7 +501,12 @@ export function ControlSidebar() {
                 step={0.01}
                 className="w-full"
               />
-              <div className="text-right text-sm text-gray-400 mt-1">{config.randomishAmount.toFixed(2)}</div>
+              <div className="flex items-center justify-between mt-1">
+                <div className="text-sm text-gray-400">{config.randomishAmount.toFixed(2)}</div>
+                <Button size="icon" variant="outline" disabled={!draft} onClick={() => { addOrUpdateDraftProp('randomishAmount', config.randomishAmount); }} title="Add randomish amount to active animation">
+                  <Diamond className="text-orange-400" />
+                </Button>
+              </div>
             </div>
             <div>
               <label className="block text-sm font-medium mb-2">Pattern Size</label>
@@ -437,7 +518,12 @@ export function ControlSidebar() {
                 step={0.1}
                 className="w-full"
               />
-              <div className="text-right text-sm text-gray-400 mt-1">{config.pulseSize.toFixed(1)}</div>
+              <div className="flex items-center justify-between mt-1">
+                <div className="text-sm text-gray-400">{config.pulseSize.toFixed(1)}</div>
+                <Button size="icon" variant="outline" disabled={!draft} onClick={() => { addOrUpdateDraftProp('pulseSize', config.pulseSize); }} title="Add pattern size to active animation">
+                  <Diamond className="text-orange-400" />
+                </Button>
+              </div>
             </div>
             <div>
               <label className="block text-sm font-medium mb-2">Randomish Speed</label>
@@ -449,7 +535,12 @@ export function ControlSidebar() {
                 step={0.1}
                 className="w-full"
               />
-              <div className="text-right text-sm text-gray-400 mt-1">{config.randomishSpeed.toFixed(1)}</div>
+              <div className="flex items-center justify-between mt-1">
+                <div className="text-sm text-gray-400">{config.randomishSpeed.toFixed(1)}</div>
+                <Button size="icon" variant="outline" disabled={!draft} onClick={() => { addOrUpdateDraftProp('randomishSpeed', config.randomishSpeed); }} title="Add randomish speed to active animation">
+                  <Diamond className="text-orange-400" />
+                </Button>
+              </div>
             </div>
           </SidebarGroupContent>
         </SidebarGroup>
@@ -478,7 +569,12 @@ export function ControlSidebar() {
                 step={0.01}
                 className="w-full"
               />
-              <div className="text-right text-sm text-gray-400 mt-1">{config.sineAmount.toFixed(2)}</div>
+              <div className="flex items-center justify-between mt-1">
+                <div className="text-sm text-gray-400">{config.sineAmount.toFixed(2)}</div>
+                <Button size="icon" variant="outline" disabled={!draft} onClick={() => { addOrUpdateDraftProp('sineAmount', config.sineAmount); }} title="Add sine amount to active animation">
+                  <Diamond className="text-orange-400" />
+                </Button>
+              </div>
             </div>
             <div>
               <label className="block text-sm font-medium mb-2">Sine Speed</label>
@@ -490,7 +586,12 @@ export function ControlSidebar() {
                 step={0.1}
                 className="w-full"
               />
-              <div className="text-right text-sm text-gray-400 mt-1">{config.sineSpeed.toFixed(1)}</div>
+              <div className="flex items-center justify-between mt-1">
+                <div className="text-sm text-gray-400">{config.sineSpeed.toFixed(1)}</div>
+                <Button size="icon" variant="outline" disabled={!draft} onClick={() => { addOrUpdateDraftProp('sineSpeed', config.sineSpeed); }} title="Add sine speed to active animation">
+                  <Diamond className="text-orange-400" />
+                </Button>
+              </div>
             </div>
             <div>
               <label className="block text-sm font-medium mb-2">Sine Scale</label>
@@ -502,7 +603,12 @@ export function ControlSidebar() {
                 step={0.1}
                 className="w-full"
               />
-              <div className="text-right text-sm text-gray-400 mt-1">{config.sineScale.toFixed(1)}</div>
+              <div className="flex items-center justify-between mt-1">
+                <div className="text-sm text-gray-400">{config.sineScale.toFixed(1)}</div>
+                <Button size="icon" variant="outline" disabled={!draft} onClick={() => { addOrUpdateDraftProp('sineScale', config.sineScale); }} title="Add sine scale to active animation">
+                  <Diamond className="text-orange-400" />
+                </Button>
+              </div>
             </div>
           </SidebarGroupContent>
         </SidebarGroup>
@@ -531,7 +637,12 @@ export function ControlSidebar() {
                 step={0.01}
                 className="w-full"
               />
-              <div className="text-right text-sm text-gray-400 mt-1">{config.rippleAmount.toFixed(2)}</div>
+              <div className="flex items-center justify-between mt-1">
+                <div className="text-sm text-gray-400">{config.rippleAmount.toFixed(2)}</div>
+                <Button size="icon" variant="outline" disabled={!draft} onClick={() => { addOrUpdateDraftProp('rippleAmount', config.rippleAmount); }} title="Add ripple amount to active animation">
+                  <Diamond className="text-orange-400" />
+                </Button>
+              </div>
             </div>
             <div>
               <label className="block text-sm font-medium mb-2">Speed</label>
@@ -543,7 +654,12 @@ export function ControlSidebar() {
                 step={0.1}
                 className="w-full"
               />
-              <div className="text-right text-sm text-gray-400 mt-1">{config.rippleSpeed.toFixed(1)}</div>
+              <div className="flex items-center justify-between mt-1">
+                <div className="text-sm text-gray-400">{config.rippleSpeed.toFixed(1)}</div>
+                <Button size="icon" variant="outline" disabled={!draft} onClick={() => { addOrUpdateDraftProp('rippleSpeed', config.rippleSpeed); }} title="Add ripple speed to active animation">
+                  <Diamond className="text-orange-400" />
+                </Button>
+              </div>
             </div>
             <div>
               <label className="block text-sm font-medium mb-2">Scale</label>
@@ -555,7 +671,12 @@ export function ControlSidebar() {
                 step={0.1}
                 className="w-full"
               />
-              <div className="text-right text-sm text-gray-400 mt-1">{config.rippleScale.toFixed(1)}</div>
+              <div className="flex items-center justify-between mt-1">
+                <div className="text-sm text-gray-400">{config.rippleScale.toFixed(1)}</div>
+                <Button size="icon" variant="outline" disabled={!draft} onClick={() => { addOrUpdateDraftProp('rippleScale', config.rippleScale); }} title="Add ripple scale to active animation">
+                  <Diamond className="text-orange-400" />
+                </Button>
+              </div>
             </div>
           </SidebarGroupContent>
         </SidebarGroup>
@@ -585,7 +706,12 @@ export function ControlSidebar() {
                 step={0.01}
                 className="w-full"
               />
-              <div className="text-right text-sm text-gray-400 mt-1">{config.surfaceRippleAmount.toFixed(2)}</div>
+              <div className="flex items-center justify-between mt-1">
+                <div className="text-sm text-gray-400">{config.surfaceRippleAmount.toFixed(2)}</div>
+                <Button size="icon" variant="outline" disabled={!draft} onClick={() => { addOrUpdateDraftProp('surfaceRippleAmount', config.surfaceRippleAmount); }} title="Add surface ripple amount to active animation">
+                  <Diamond className="text-orange-400" />
+                </Button>
+              </div>
             </div>
             <div>
               <label className="block text-sm font-medium mb-2">Speed</label>
@@ -597,7 +723,12 @@ export function ControlSidebar() {
                 step={0.1}
                 className="w-full"
               />
-              <div className="text-right text-sm text-gray-400 mt-1">{config.surfaceRippleSpeed.toFixed(1)}</div>
+              <div className="flex items-center justify-between mt-1">
+                <div className="text-sm text-gray-400">{config.surfaceRippleSpeed.toFixed(1)}</div>
+                <Button size="icon" variant="outline" disabled={!draft} onClick={() => { addOrUpdateDraftProp('surfaceRippleSpeed', config.surfaceRippleSpeed); }} title="Add surface ripple speed to active animation">
+                  <Diamond className="text-orange-400" />
+                </Button>
+              </div>
             </div>
             <div>
               <label className="block text-sm font-medium mb-2">Scale</label>
@@ -609,7 +740,12 @@ export function ControlSidebar() {
                 step={0.1}
                 className="w-full"
               />
-              <div className="text-right text-sm text-gray-400 mt-1">{config.surfaceRippleScale.toFixed(1)}</div>
+              <div className="flex items-center justify-between mt-1">
+                <div className="text-sm text-gray-400">{config.surfaceRippleScale.toFixed(1)}</div>
+                <Button size="icon" variant="outline" disabled={!draft} onClick={() => { addOrUpdateDraftProp('surfaceRippleScale', config.surfaceRippleScale); }} title="Add surface ripple scale to active animation">
+                  <Diamond className="text-orange-400" />
+                </Button>
+              </div>
             </div>
           </SidebarGroupContent>
         </SidebarGroup>
@@ -638,7 +774,12 @@ export function ControlSidebar() {
                     step={0.01}
                     className="w-full"
                   />
-                  <div className="text-right text-sm text-gray-400 mt-1">{config.maskRadius.toFixed(2)}</div>
+                  <div className="flex items-center justify-between mt-1">
+                    <div className="text-sm text-gray-400">{config.maskRadius.toFixed(2)}</div>
+                    <Button size="icon" variant="outline" disabled={!draft} onClick={() => { addOrUpdateDraftProp('maskRadius', config.maskRadius); }} title="Add mask radius to active animation">
+                      <Diamond className="text-orange-400" />
+                    </Button>
+                  </div>
                 </div>
                 <div>
                   <label className="block text-sm font-medium mb-2">Mask Feather</label>
@@ -650,7 +791,12 @@ export function ControlSidebar() {
                     step={0.01}
                     className="w-full"
                   />
-                  <div className="text-right text-sm text-gray-400 mt-1">{config.maskFeather.toFixed(2)}</div>
+                  <div className="flex items-center justify-between mt-1">
+                    <div className="text-sm text-gray-400">{config.maskFeather.toFixed(2)}</div>
+                    <Button size="icon" variant="outline" disabled={!draft} onClick={() => { addOrUpdateDraftProp('maskFeather', config.maskFeather); }} title="Add mask feather to active animation">
+                      <Diamond className="text-orange-400" />
+                    </Button>
+                  </div>
                 </div>
                 <div className="flex items-center space-x-2">
                   <Checkbox
@@ -690,7 +836,12 @@ export function ControlSidebar() {
                   step={0.05}
                   className="w-full"
                 />
-                <div className="text-right text-sm text-gray-400 mt-1">{config.spinSpeed.toFixed(2)}</div>
+                <div className="flex items-center justify-between mt-1">
+                  <div className="text-sm text-gray-400">{config.spinSpeed.toFixed(2)}</div>
+                  <Button size="icon" variant="outline" disabled={!draft} onClick={() => { addOrUpdateDraftProp('spinSpeed', config.spinSpeed); }} title="Add spin speed to active animation">
+                    <Diamond className="text-orange-400" />
+                  </Button>
+                </div>
               </div>
               
               <div>
@@ -703,7 +854,12 @@ export function ControlSidebar() {
                   step={1}
                   className="w-full"
                 />
-                <div className="text-right text-sm text-gray-400 mt-1">{config.spinAxisX}°</div>
+                <div className="flex items-center justify-between mt-1">
+                  <div className="text-sm text-gray-400">{config.spinAxisX}°</div>
+                  <Button size="icon" variant="outline" disabled={!draft} onClick={() => { addOrUpdateDraftProp('spinAxisX', config.spinAxisX); }} title="Add spin axis X to active animation">
+                    <Diamond className="text-orange-400" />
+                  </Button>
+                </div>
               </div>
               
               <div>
@@ -716,7 +872,12 @@ export function ControlSidebar() {
                   step={1}
                   className="w-full"
                 />
-                <div className="text-right text-sm text-gray-400 mt-1">{config.spinAxisY}°</div>
+                <div className="flex items-center justify-between mt-1">
+                  <div className="text-sm text-gray-400">{config.spinAxisY}°</div>
+                  <Button size="icon" variant="outline" disabled={!draft} onClick={() => { addOrUpdateDraftProp('spinAxisY', config.spinAxisY); }} title="Add spin axis Y to active animation">
+                    <Diamond className="text-orange-400" />
+                  </Button>
+                </div>
               </div>
             </>
           )}
@@ -760,7 +921,7 @@ export function ControlSidebar() {
                 <div className="space-y-2">
                   <div className="relative">
                     <pre className="w-full max-h-64 overflow-auto rounded border border-gray-600 bg-gray-900 p-3 text-xs text-gray-100">
-                      <code className="whitespace-pre">{JSON.stringify(config, null, 2)}</code>
+                      <code className="whitespace-pre">{JSON.stringify({ config, animations: useAnimationStore.getState().animations }, null, 2)}</code>
                     </pre>
                     <Button
                       onClick={handleCopyConfig}

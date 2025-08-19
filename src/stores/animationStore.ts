@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { persist, createJSONStorage } from 'zustand/middleware';
 import type { Config } from './configStore';
 
 export type AnimEase =
@@ -28,6 +29,9 @@ type AnimationStore = {
   playRequestId: AnimationId | null;
   requestPlay: (id: AnimationId) => void;
   clearPlayRequest: () => void;
+  // import/export
+  exportAnimations: () => string;
+  importAnimations: (json: string) => boolean;
   // CRUD
   create: (name?: string) => AnimationId;
   remove: (id: AnimationId) => void;
@@ -49,7 +53,9 @@ function makeId(): AnimationId {
   return Math.random().toString(36).slice(2) + Date.now().toString(36);
 }
 
-export const useAnimationStore = create<AnimationStore>((set, get) => ({
+export const useAnimationStore = create<AnimationStore>()(
+  persist(
+    (set, get) => ({
   animations: [],
   activeId: null,
   editorId: null,
@@ -58,6 +64,40 @@ export const useAnimationStore = create<AnimationStore>((set, get) => ({
 
   requestPlay: (id) => set({ playRequestId: id }),
   clearPlayRequest: () => set({ playRequestId: null }),
+
+  exportAnimations: () => {
+    const { animations } = get();
+    try {
+      return JSON.stringify(animations, null, 2);
+    } catch {
+      return '[]';
+    }
+  },
+
+  importAnimations: (json: string) => {
+    try {
+      const parsed = JSON.parse(json);
+      const list: AnimationDef[] = Array.isArray(parsed)
+        ? parsed
+        : Array.isArray(parsed?.animations)
+          ? parsed.animations
+          : [];
+      if (!Array.isArray(list)) return false;
+      // Basic shape check
+      const cleaned: AnimationDef[] = list.map((a: any) => ({
+        id: typeof a.id === 'string' ? a.id : makeId(),
+        name: typeof a.name === 'string' ? a.name : 'Animation',
+        to: typeof a.to === 'object' && a.to ? a.to : {},
+        duration: typeof a.duration === 'number' ? a.duration : 1.0,
+        ease: typeof a.ease === 'string' ? (a.ease as any) : 'power2.inOut',
+      }));
+      set({ animations: cleaned, activeId: null, editorId: null, draft: null, playRequestId: null });
+      return true;
+    } catch (e) {
+      console.error('Failed to import animations', e);
+      return false;
+    }
+  },
 
   create: (name = 'New Animation') => {
     const id = makeId();
@@ -132,6 +172,12 @@ export const useAnimationStore = create<AnimationStore>((set, get) => ({
     const { [key]: _omitted, ...rest } = s.draft.to as any;
     return { draft: { ...s.draft, to: rest } };
   }),
-}));
+    }),
+    {
+      name: 'sphere-waveform-animations',
+      storage: createJSONStorage(() => localStorage),
+    }
+  )
+);
 
 
