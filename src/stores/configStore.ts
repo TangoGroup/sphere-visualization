@@ -146,7 +146,7 @@ export interface Config extends ConfigV16 {
 }
 
 // Default configuration
-const defaultConfig: Config = {
+export const defaultConfig: Config = {
   version: 16,
   // Global controls
   vertexCount: 400,

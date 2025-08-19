@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
-import type { Config } from './configStore';
+import { defaultConfig, type Config } from './configStore';
 
 export type AnimEase =
   | 'linear'
@@ -18,6 +18,7 @@ export type AnimationDef = {
   to: Partial<Config>;
   duration: number; // seconds
   ease: AnimEase;
+  system?: boolean;
 };
 
 type AnimationStore = {
@@ -41,6 +42,8 @@ type AnimationStore = {
   beginEdit: (id: AnimationId) => void;
   discardDraft: () => void;
   saveDraft: () => void;
+  ensureDefaultAnimation: () => void;
+  ensureDefaultAnimation: () => void;
   // Draft edits
   setDraftName: (name: string) => void;
   setDraftDuration: (seconds: number) => void;
@@ -53,14 +56,86 @@ function makeId(): AnimationId {
   return Math.random().toString(36).slice(2) + Date.now().toString(36);
 }
 
+function buildDefaultsTarget(): Partial<Config> {
+  // Only include numeric and color/string we can animate/interpolate directly
+  return {
+    // global
+    size: defaultConfig.size,
+    opacity: defaultConfig.opacity,
+    rotationX: defaultConfig.rotationX,
+    rotationY: defaultConfig.rotationY,
+    rotationZ: defaultConfig.rotationZ,
+    pointSize: defaultConfig.pointSize,
+    vertexCount: defaultConfig.vertexCount,
+    pointColor: defaultConfig.pointColor,
+    volume: defaultConfig.volume,
+    // noise
+    randomishAmount: defaultConfig.randomishAmount,
+    pulseSize: defaultConfig.pulseSize,
+    randomishSpeed: defaultConfig.randomishSpeed,
+    sineAmount: defaultConfig.sineAmount,
+    sineSpeed: defaultConfig.sineSpeed,
+    sineScale: defaultConfig.sineScale,
+    rippleAmount: defaultConfig.rippleAmount,
+    rippleSpeed: defaultConfig.rippleSpeed,
+    rippleScale: defaultConfig.rippleScale,
+    surfaceRippleAmount: defaultConfig.surfaceRippleAmount,
+    surfaceRippleSpeed: defaultConfig.surfaceRippleSpeed,
+    surfaceRippleScale: defaultConfig.surfaceRippleScale,
+    // mask
+    maskRadius: defaultConfig.maskRadius,
+    maskFeather: defaultConfig.maskFeather,
+    // spin
+    spinSpeed: defaultConfig.spinSpeed,
+    spinAxisX: defaultConfig.spinAxisX,
+    spinAxisY: defaultConfig.spinAxisY,
+    // arcs
+    arcMaxCount: defaultConfig.arcMaxCount,
+    arcSpawnRate: defaultConfig.arcSpawnRate,
+    arcDuration: defaultConfig.arcDuration,
+    arcSpeed: defaultConfig.arcSpeed,
+    arcSpanDeg: defaultConfig.arcSpanDeg,
+    arcThickness: defaultConfig.arcThickness,
+    arcFeather: defaultConfig.arcFeather,
+    arcBrightness: defaultConfig.arcBrightness,
+    arcAltitude: defaultConfig.arcAltitude,
+  };
+}
+
 export const useAnimationStore = create<AnimationStore>()(
   persist(
     (set, get) => ({
   animations: [],
+  ensureDefaultAnimation: () => set((s) => {
+    const exists = s.animations.some(a => a.system && a.name === 'Default');
+    if (exists) return {} as any;
+    const def: AnimationDef = {
+      id: 'default-animation',
+      name: 'Default',
+      system: true,
+      duration: 0.6,
+      ease: 'power2.inOut',
+      to: buildDefaultsTarget(),
+    };
+    return { animations: [def, ...s.animations] };
+  }),
   activeId: null,
   editorId: null,
   draft: null,
   playRequestId: null,
+  ensureDefaultAnimation: () => set((s) => {
+    const exists = s.animations.some(a => a.system && a.name === 'Default');
+    if (exists) return {} as any;
+    const def: AnimationDef = {
+      id: 'default-animation',
+      name: 'Default',
+      system: true,
+      duration: 0.6,
+      ease: 'power2.inOut',
+      to: buildDefaultsTarget(),
+    };
+    return { animations: [def, ...s.animations] };
+  }),
 
   requestPlay: (id) => set({ playRequestId: id }),
   clearPlayRequest: () => set({ playRequestId: null }),
@@ -90,8 +165,22 @@ export const useAnimationStore = create<AnimationStore>()(
         to: typeof a.to === 'object' && a.to ? a.to : {},
         duration: typeof a.duration === 'number' ? a.duration : 1.0,
         ease: typeof a.ease === 'string' ? (a.ease as any) : 'power2.inOut',
+        system: Boolean(a.system),
       }));
-      set({ animations: cleaned, activeId: null, editorId: null, draft: null, playRequestId: null });
+      const ensureDefault = (arr: AnimationDef[]): AnimationDef[] => {
+        const exists = arr.some(a => a.system && a.name === 'Default');
+        if (exists) return arr;
+        const def: AnimationDef = {
+          id: 'default-animation',
+          name: 'Default',
+          system: true,
+          duration: 0.6,
+          ease: 'power2.inOut',
+          to: buildDefaultsTarget(),
+        };
+        return [def, ...arr];
+      };
+      set({ animations: ensureDefault(cleaned), activeId: null, editorId: null, draft: null, playRequestId: null });
       return true;
     } catch (e) {
       console.error('Failed to import animations', e);
@@ -115,7 +204,7 @@ export const useAnimationStore = create<AnimationStore>()(
   },
 
   remove: (id) => set((s) => ({
-    animations: s.animations.filter((a) => a.id !== id),
+    animations: s.animations.filter((a) => a.id !== id && !a.system),
     activeId: s.activeId === id ? null : s.activeId,
     editorId: s.editorId === id ? null : s.editorId,
     draft: s.editorId === id ? null : s.draft,
@@ -176,6 +265,14 @@ export const useAnimationStore = create<AnimationStore>()(
     {
       name: 'sphere-waveform-animations',
       storage: createJSONStorage(() => localStorage),
+      onRehydrateStorage: () => (state) => {
+        if (state) {
+          try {
+            const s = useAnimationStore.getState();
+            s.ensureDefaultAnimation();
+          } catch {}
+        }
+      }
     }
   )
 );

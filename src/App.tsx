@@ -1,4 +1,4 @@
-import { useMemo, Suspense } from 'react';
+import { useMemo, Suspense, useEffect } from 'react';
 import { Canvas } from '@react-three/fiber';
 import { OrbitControls } from '@react-three/drei';
 import * as THREE from 'three';
@@ -8,8 +8,8 @@ import { useConfigStore } from './stores/configStore';
 import { SidebarProvider, SidebarInset } from '@/components/ui/sidebar';
 import AnimationSidebar from '@/components/AnimationSidebar';
 import { useAnimationRunner } from '@/hooks/useAnimationRunner';
+import { useAnimationStore } from '@/stores/animationStore';
 import { useMicAnalyzer } from '@/hooks/useMicAnalyzer';
-import { useEffect } from 'react';
 
 function Scene({ volume, vertexCount, pointSize, shellCount, freezeTime, advanceCount, enableRandomishNoise, randomishAmount, enableSineNoise, sineAmount, pulseSize, enableSpin, spinSpeed, spinAxisX, spinAxisY, maskEnabled, maskRadius, maskFeather, maskInvert, sineSpeed, sineScale, randomishSpeed, pointColor, backgroundTheme, enableRippleNoise, rippleAmount, rippleSpeed, rippleScale, enableSurfaceRipple, surfaceRippleAmount, surfaceRippleSpeed, surfaceRippleScale, enableArcs, arcMaxCount, arcSpawnRate, arcDuration, arcSpeed, arcSpanDeg, arcThickness, arcFeather, arcBrightness, arcAltitude, size, opacity, rotationX, rotationY, rotationZ }: { 
   volume: number; 
@@ -127,6 +127,8 @@ function App() {
   const { config } = useConfigStore();
   const mic = useMicAnalyzer({ smoothingTimeConstant: 0.85, fftSize: 1024 });
   useAnimationRunner();
+  const ensureDefaultAnimation = useAnimationStore(s => s.ensureDefaultAnimation);
+  useEffect(() => { ensureDefaultAnimation(); }, [ensureDefaultAnimation]);
 
   useEffect(() => {
     if (config.micEnabled) {

@@ -88,7 +88,7 @@ export function AnimationSidebar() {
                     <Button size="icon" variant="outline" title="Duplicate" onClick={() => duplicate(a.id)}>
                       <Copy />
                     </Button>
-                    <Button size="icon" variant="destructive" title="Delete" onClick={() => remove(a.id)}>
+                    <Button size="icon" variant="destructive" title="Delete" onClick={() => remove(a.id)} disabled={a.system}>
                       <Trash2 />
                     </Button>
                   </div>
