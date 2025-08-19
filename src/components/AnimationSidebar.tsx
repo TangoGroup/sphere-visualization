@@ -1,4 +1,3 @@
-import { useMemo } from 'react';
 import { useAnimationStore } from '@/stores/animationStore';
 import { Button } from './ui/button';
 import { Sidebar, SidebarContent, SidebarGroup, SidebarGroupContent, SidebarGroupLabel, SidebarHeader } from './ui/sidebar';
@@ -10,10 +9,8 @@ export function AnimationSidebar() {
   const {
     animations,
     activeId,
-    editorId,
     draft,
     create,
-    setActive,
     beginEdit,
     discardDraft,
     saveDraft,
@@ -24,7 +21,7 @@ export function AnimationSidebar() {
     setDraftEase,
     setDraftName,
   } = useAnimationStore();
-  const active = useMemo(() => animations.find(a => a.id === activeId) ?? null, [animations, activeId]);
+  
   const editing = draft;
   const easeOptions: ComboboxOption[] = [
     // Common

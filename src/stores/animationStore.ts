@@ -43,7 +43,6 @@ type AnimationStore = {
   discardDraft: () => void;
   saveDraft: () => void;
   ensureDefaultAnimation: () => void;
-  ensureDefaultAnimation: () => void;
   // Draft edits
   setDraftName: (name: string) => void;
   setDraftDuration: (seconds: number) => void;
@@ -123,19 +122,7 @@ export const useAnimationStore = create<AnimationStore>()(
   editorId: null,
   draft: null,
   playRequestId: null,
-  ensureDefaultAnimation: () => set((s) => {
-    const exists = s.animations.some(a => a.system && a.name === 'Default');
-    if (exists) return {} as any;
-    const def: AnimationDef = {
-      id: 'default-animation',
-      name: 'Default',
-      system: true,
-      duration: 0.6,
-      ease: 'power2.inOut',
-      to: buildDefaultsTarget(),
-    };
-    return { animations: [def, ...s.animations] };
-  }),
+  
 
   requestPlay: (id) => set({ playRequestId: id }),
   clearPlayRequest: () => set({ playRequestId: null }),
@@ -248,7 +235,7 @@ export const useAnimationStore = create<AnimationStore>()(
   addOrUpdateDraftProp: (key, value) => set((s) => {
     // If no draft, create a new animation and begin edit
     if (!s.draft) {
-      const id = get().create();
+      get().create();
       const { draft } = get();
       if (!draft) return {} as any;
       return { draft: { ...draft, to: { ...draft.to, [key]: value } } };
