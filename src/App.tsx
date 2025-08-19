@@ -9,7 +9,7 @@ import { SidebarProvider, SidebarInset } from '@/components/ui/sidebar';
 import { useMicAnalyzer } from '@/hooks/useMicAnalyzer';
 import { useEffect } from 'react';
 
-function Scene({ volume, vertexCount, pointSize, shellCount, freezeTime, advanceCount, enableRandomishNoise, randomishAmount, enableSineNoise, sineAmount, pulseSize, enableSpin, spinSpeed, spinAxisX, spinAxisY, maskEnabled, maskRadius, maskFeather, maskInvert, sineSpeed, sineScale, randomishSpeed, pointColor, backgroundTheme, enableRippleNoise, rippleAmount, rippleSpeed, rippleScale, enableSurfaceRipple, surfaceRippleAmount, surfaceRippleSpeed, surfaceRippleScale, enableArcs, arcMaxCount, arcSpawnRate, arcDuration, arcSpeed, arcSpanDeg, arcThickness, arcFeather, arcBrightness, arcAltitude }: { 
+function Scene({ volume, vertexCount, pointSize, shellCount, freezeTime, advanceCount, enableRandomishNoise, randomishAmount, enableSineNoise, sineAmount, pulseSize, enableSpin, spinSpeed, spinAxisX, spinAxisY, maskEnabled, maskRadius, maskFeather, maskInvert, sineSpeed, sineScale, randomishSpeed, pointColor, backgroundTheme, enableRippleNoise, rippleAmount, rippleSpeed, rippleScale, enableSurfaceRipple, surfaceRippleAmount, surfaceRippleSpeed, surfaceRippleScale, enableArcs, arcMaxCount, arcSpawnRate, arcDuration, arcSpeed, arcSpanDeg, arcThickness, arcFeather, arcBrightness, arcAltitude, size, opacity, rotationX, rotationY, rotationZ }: { 
   volume: number; 
   vertexCount: number; 
   pointSize: number; 
@@ -52,6 +52,11 @@ function Scene({ volume, vertexCount, pointSize, shellCount, freezeTime, advance
   arcFeather: number;
   arcBrightness: number;
   arcAltitude: number;
+  size: number;
+  opacity: number;
+  rotationX: number;
+  rotationY: number;
+  rotationZ: number;
 }) {
   const bg = useMemo(() => new THREE.Color(backgroundTheme === 'dark' ? '#0b0f13' : '#ffffff'), [backgroundTheme]);
   const blendingMode = backgroundTheme === 'light' ? 'normal' : 'additive' as const;
@@ -67,6 +72,11 @@ function Scene({ volume, vertexCount, pointSize, shellCount, freezeTime, advance
           shellCount={shellCount}
           freezeTime={freezeTime}
           advanceCount={advanceCount}
+          size={size}
+          opacity={opacity}
+          rotationX={rotationX}
+          rotationY={rotationY}
+          rotationZ={rotationZ}
           enableRandomishNoise={enableRandomishNoise}
           randomishAmount={randomishAmount}
           enableSineNoise={enableSineNoise}
@@ -142,6 +152,11 @@ function App() {
               shellCount={config.shellCount}
               freezeTime={config.freezeTime}
               advanceCount={config.advanceCount}
+              size={config.size}
+              opacity={config.opacity}
+              rotationX={config.rotationX}
+              rotationY={config.rotationY}
+              rotationZ={config.rotationZ}
               enableRandomishNoise={config.enableRandomishNoise}
               randomishAmount={config.randomishAmount}
               enableSineNoise={config.enableSineNoise}

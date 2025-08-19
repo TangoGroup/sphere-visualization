@@ -15,6 +15,12 @@ export interface SphereWaveformProps {
   freezeTime?: boolean; // debug: freeze time progression
   advanceCount?: number; // debug: increments to step time forward manually
   advanceAmount?: number; // seconds to advance per count (default 1/60)
+  // Global transform
+  size?: number; // overall scene scale multiplier (default 1)
+  opacity?: number; // 0..1 global alpha multiplier
+  rotationX?: number; // degrees
+  rotationY?: number; // degrees
+  rotationZ?: number; // degrees
   // Composable noise toggles
   enableRandomishNoise?: boolean;
   randomishAmount?: number; // 0..1
@@ -80,6 +86,7 @@ interface Uniforms {
   uSineAmount: { value: number };
   uRandomishSpeed: { value: number };
   uPulseSize: { value: number };
+  uOpacity: { value: number };
   // Ripple uniforms
   uEnableRipple: { value: number };
   uRippleAmount: { value: number };
@@ -343,6 +350,7 @@ uniform float uMaskRadiusPx;
 uniform float uMaskFeatherPx;
 uniform int uMaskInvert;
 uniform vec3 uColor;
+uniform float uOpacity;
 varying vec2 vNdc;
 varying float vArcBoost;
 void main() {
@@ -359,6 +367,7 @@ void main() {
     alpha *= clamp(mask, 0.0, 1.0);
   }
   alpha *= min(3.0, 1.0 + vArcBoost);
+  alpha *= clamp(uOpacity, 0.0, 1.0);
   gl_FragColor = vec4(uColor, alpha);
 }
 `;
@@ -387,6 +396,11 @@ export function SphereWaveform({
   freezeTime = false,
   advanceCount = 0,
   advanceAmount = 1 / 60,
+  size = 1,
+  opacity = 1,
+  rotationX = 0,
+  rotationY = 0,
+  rotationZ = 0,
   enableRandomishNoise = true,
   randomishAmount = 1,
   enableSineNoise = false,
@@ -460,6 +474,7 @@ export function SphereWaveform({
         uSineAmount: { value: sineAmount },
         uRandomishSpeed: { value: randomishSpeed },
         uPulseSize: { value: pulseSize },
+        uOpacity: { value: opacity },
         uEnableRipple: { value: enableRippleNoise ? 1 : 0 },
         uRippleAmount: { value: rippleAmount },
         uRippleSpeed: { value: rippleSpeed },
@@ -610,6 +625,7 @@ export function SphereWaveform({
       u.uSineAmount.value = THREE.MathUtils.clamp(sineAmount, 0, 1);
       u.uRandomishSpeed.value = randomishSpeed;
       u.uPulseSize.value = THREE.MathUtils.clamp(pulseSize, 0, 1);
+      u.uOpacity.value = THREE.MathUtils.clamp(opacity, 0, 1);
       // Ripple
       u.uEnableRipple.value = enableRippleNoise ? 1 : 0;
       u.uRippleAmount.value = THREE.MathUtils.clamp(rippleAmount, 0, 1);
@@ -650,8 +666,12 @@ export function SphereWaveform({
     }
   });
 
+  const rotX = THREE.MathUtils.degToRad(rotationX);
+  const rotY = THREE.MathUtils.degToRad(rotationY);
+  const rotZ = THREE.MathUtils.degToRad(rotationZ);
+
   return (
-    <>
+    <group scale={[size, size, size]} rotation={[rotX, rotY, rotZ]}>
       {uniformsRef.current!.map((u, i) => (
         <points key={`points-${i}`} renderOrder={i}>
           <bufferGeometry key={`${vertexCount}-${radius}-${seed}-${i}`}>
@@ -669,7 +689,7 @@ export function SphereWaveform({
           />
         </points>
       ))}
-    </>
+    </group>
   );
 }
 

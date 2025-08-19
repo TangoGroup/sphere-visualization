@@ -130,19 +130,35 @@ type ConfigV15 = Omit<ConfigV14, 'version'> & {
   backgroundTheme: 'dark' | 'light';
 }
 
+type ConfigV16 = Omit<ConfigV15, 'version'> & {
+  version: 16;
+  // Global transform and presentation
+  size: number; // overall scene scale multiplier
+  opacity: number; // 0..1 global alpha multiplier
+  rotationX: number; // degrees
+  rotationY: number; // degrees
+  rotationZ: number; // degrees
+}
+
 // Current configuration interface
-export interface Config extends ConfigV15 {
-  version: 15;
+export interface Config extends ConfigV16 {
+  version: 16;
 }
 
 // Default configuration
 const defaultConfig: Config = {
-  version: 15,
+  version: 16,
   // Global controls
   vertexCount: 400,
   pointSize: 0.04,
   shellCount: 1,
   volume: 0,
+  // Global transform
+  size: 1,
+  opacity: 1,
+  rotationX: 0,
+  rotationY: 0,
+  rotationZ: 0,
   
   // Effect toggles
   enableSpin: false,
@@ -217,7 +233,7 @@ function migrateV1ToV2(config: ConfigV1): ConfigV2 {
   };
 }
 
-function migrateConfig(config: any): ConfigV14 | ConfigV15 {
+function migrateConfig(config: any): ConfigV14 | ConfigV15 | ConfigV16 {
   if (!config || typeof config !== 'object') {
     return defaultConfig;
   }
@@ -394,7 +410,9 @@ function migrateConfig(config: any): ConfigV14 | ConfigV15 {
     case 14:
       return config as ConfigV14;
     case 15:
-      return config as ConfigV15;
+      return migrateV15ToV16(config as ConfigV15);
+    case 16:
+      return config as ConfigV16;
     default:
       console.warn(`Unknown config version ${version}, using defaults`);
       return defaultConfig;
@@ -531,15 +549,31 @@ function migrateV14ToV15(config: ConfigV14): ConfigV15 {
   } as unknown as ConfigV15;
 }
 
+function migrateV15ToV16(config: ConfigV15): ConfigV16 {
+  return {
+    ...config,
+    version: 16,
+    size: 1,
+    opacity: 1,
+    rotationX: 0,
+    rotationY: 0,
+    rotationZ: 0,
+  } as unknown as ConfigV16;
+}
+
 function migrateToLatest(config: any): Config {
   const migrated = migrateConfig(config);
   if (!migrated || typeof migrated !== 'object') {
     return defaultConfig;
   }
   if ((migrated as ConfigV14).version === 14) {
-    return migrateV14ToV15(migrated as ConfigV14) as Config;
+    const v15 = migrateV14ToV15(migrated as ConfigV14);
+    return migrateV15ToV16(v15) as Config;
   }
   if ((migrated as ConfigV15).version === 15) {
+    return migrateV15ToV16(migrated as ConfigV15) as Config;
+  }
+  if ((migrated as ConfigV16).version === 16) {
     return migrated as Config;
   }
   // Fallback safety

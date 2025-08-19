@@ -104,6 +104,73 @@ export function ControlSidebar() {
             />
             <div className="text-right text-sm text-gray-400 mt-1">{config.volume.toFixed(2)}</div>
           </div>
+
+          <Separator className="my-4" />
+
+          <div>
+            <label className="block text-sm font-medium mb-2">Global Size</label>
+            <Slider
+              value={[config.size]}
+              onValueChange={([value]) => setConfig({ size: value })}
+              min={0.2}
+              max={3}
+              step={0.01}
+              className="w-full"
+            />
+            <div className="text-right text-sm text-gray-400 mt-1">{config.size.toFixed(2)}×</div>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium mb-2">Opacity</label>
+            <Slider
+              value={[config.opacity]}
+              onValueChange={([value]) => setConfig({ opacity: value })}
+              min={0}
+              max={1}
+              step={0.01}
+              className="w-full"
+            />
+            <div className="text-right text-sm text-gray-400 mt-1">{config.opacity.toFixed(2)}</div>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium mb-2">Rotation X</label>
+            <Slider
+              value={[config.rotationX]}
+              onValueChange={([value]) => setConfig({ rotationX: value })}
+              min={0}
+              max={360}
+              step={1}
+              className="w-full"
+            />
+            <div className="text-right text-sm text-gray-400 mt-1">{config.rotationX.toFixed(0)}°</div>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium mb-2">Rotation Y</label>
+            <Slider
+              value={[config.rotationY]}
+              onValueChange={([value]) => setConfig({ rotationY: value })}
+              min={0}
+              max={360}
+              step={1}
+              className="w-full"
+            />
+            <div className="text-right text-sm text-gray-400 mt-1">{config.rotationY.toFixed(0)}°</div>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium mb-2">Rotation Z</label>
+            <Slider
+              value={[config.rotationZ]}
+              onValueChange={([value]) => setConfig({ rotationZ: value })}
+              min={0}
+              max={360}
+              step={1}
+              className="w-full"
+            />
+            <div className="text-right text-sm text-gray-400 mt-1">{config.rotationZ.toFixed(0)}°</div>
+          </div>
           
           <div className="flex items-center space-x-2">
             <Checkbox
