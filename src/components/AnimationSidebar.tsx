@@ -4,6 +4,7 @@ import { Sidebar, SidebarContent, SidebarGroup, SidebarGroupContent, SidebarGrou
 import { Play, Pencil, Trash2, Copy } from 'lucide-react';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from './ui/sheet';
 import { Combobox, type ComboboxOption } from './ui/combobox';
+import { useConfigStore } from '@/stores/configStore';
 
 export function AnimationSidebar() {
   const {
@@ -20,7 +21,9 @@ export function AnimationSidebar() {
     setDraftDuration,
     setDraftEase,
     setDraftName,
+    replaceDraftTo,
   } = useAnimationStore();
+  const { config } = useConfigStore();
   
   const editing = draft;
   const easeOptions: ComboboxOption[] = [
@@ -136,7 +139,10 @@ export function AnimationSidebar() {
                     />
                   </div>
                 </div>
-                <div className="text-sm text-gray-400">Properties in this animation:</div>
+                <div className="flex items-center justify-between">
+                  <div className="text-sm text-gray-400">Properties in this animation:</div>
+                  <Button size="sm" variant="outline" onClick={() => replaceDraftTo(config)}>Fill from current state</Button>
+                </div>
                 <pre className="text-xs border border-gray-600 rounded p-2 max-h-56 overflow-auto">{JSON.stringify(editing.to, null, 2)}</pre>
                 <div className="text-xs text-gray-500">Tip: Use the Apply button next to a property in the left sidebar to add/update it here.</div>
               </div>

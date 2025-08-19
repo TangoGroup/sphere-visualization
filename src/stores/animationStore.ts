@@ -47,6 +47,7 @@ type AnimationStore = {
   setDraftName: (name: string) => void;
   setDraftDuration: (seconds: number) => void;
   setDraftEase: (ease: AnimEase) => void;
+  replaceDraftTo: (to: Partial<Config>) => void;
   addOrUpdateDraftProp: <K extends keyof Config>(key: K, value: Config[K]) => void;
   removeDraftProp: (key: keyof Config) => void;
 };
@@ -231,6 +232,7 @@ export const useAnimationStore = create<AnimationStore>()(
   setDraftName: (name) => set((s) => ({ draft: s.draft ? { ...s.draft, name } : s.draft })),
   setDraftDuration: (seconds) => set((s) => ({ draft: s.draft ? { ...s.draft, duration: Math.max(0, seconds) } : s.draft })),
   setDraftEase: (ease) => set((s) => ({ draft: s.draft ? { ...s.draft, ease } : s.draft })),
+  replaceDraftTo: (to) => set((s) => ({ draft: s.draft ? { ...s.draft, to: { ...(to as any) } } : s.draft })),
 
   addOrUpdateDraftProp: (key, value) => set((s) => {
     // If no draft, create a new animation and begin edit
