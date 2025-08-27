@@ -4,11 +4,15 @@ import { defaultConfig, type Config } from './configStore';
 
 export type AnimEase =
   | 'linear'
-  | 'power1.inOut'
-  | 'power2.inOut'
-  | 'power3.inOut'
-  | 'sine.inOut'
-  | 'expo.inOut';
+  | 'power1.in' | 'power1.out' | 'power1.inOut'
+  | 'power2.in' | 'power2.out' | 'power2.inOut'
+  | 'power3.in' | 'power3.out' | 'power3.inOut'
+  | 'power4.in' | 'power4.out' | 'power4.inOut'
+  | 'sine.in' | 'sine.out' | 'sine.inOut'
+  | 'expo.in' | 'expo.out' | 'expo.inOut'
+  | 'back.in' | 'back.out' | 'back.inOut'
+  | 'elastic.in' | 'elastic.out' | 'elastic.inOut'
+  | 'bounce.in' | 'bounce.out' | 'bounce.inOut';
 
 export type AnimationId = string;
 

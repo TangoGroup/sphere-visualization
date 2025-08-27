@@ -13,12 +13,14 @@ export function Combobox({
   value,
   onChange,
   options,
-  placeholder = 'Select...'
+  placeholder = 'Select...',
+  renderOption
 }: {
   value: string
   onChange: (value: string) => void
   options: ComboboxOption[]
   placeholder?: string
+  renderOption?: (opt: ComboboxOption) => React.ReactNode
 }) {
   const [open, setOpen] = React.useState(false)
   const [query, setQuery] = React.useState('')
@@ -66,7 +68,7 @@ export function Combobox({
                       className={`text-sm text-left px-2 py-1 rounded hover:bg-accent ${opt.value === value ? 'bg-accent' : ''}`}
                       onClick={() => { onChange(opt.value); setOpen(false) }}
                     >
-                      {opt.label}
+                      {renderOption ? renderOption(opt) : opt.label}
                     </button>
                   ))}
                 </div>

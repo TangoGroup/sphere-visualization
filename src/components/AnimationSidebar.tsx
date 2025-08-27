@@ -3,8 +3,9 @@ import { Button } from './ui/button';
 import { Sidebar, SidebarContent, SidebarGroup, SidebarGroupContent, SidebarGroupLabel, SidebarHeader } from './ui/sidebar';
 import { Play, Pencil, Trash2, Copy } from 'lucide-react';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from './ui/sheet';
-import { Combobox, type ComboboxOption } from './ui/combobox';
+//
 import { useConfigStore } from '@/stores/configStore';
+import { EasePicker } from './EasePicker';
 
 export function AnimationSidebar() {
   const {
@@ -26,38 +27,7 @@ export function AnimationSidebar() {
   const { config } = useConfigStore();
   
   const editing = draft;
-  const easeOptions: ComboboxOption[] = [
-    // Common
-    { value: 'linear', label: 'linear', group: 'Common' },
-    { value: 'power1.in', label: 'power1.in', group: 'Power1' },
-    { value: 'power1.out', label: 'power1.out', group: 'Power1' },
-    { value: 'power1.inOut', label: 'power1.inOut', group: 'Power1' },
-    { value: 'power2.in', label: 'power2.in', group: 'Power2' },
-    { value: 'power2.out', label: 'power2.out', group: 'Power2' },
-    { value: 'power2.inOut', label: 'power2.inOut', group: 'Power2' },
-    { value: 'power3.in', label: 'power3.in', group: 'Power3' },
-    { value: 'power3.out', label: 'power3.out', group: 'Power3' },
-    { value: 'power3.inOut', label: 'power3.inOut', group: 'Power3' },
-    { value: 'power4.in', label: 'power4.in', group: 'Power4' },
-    { value: 'power4.out', label: 'power4.out', group: 'Power4' },
-    { value: 'power4.inOut', label: 'power4.inOut', group: 'Power4' },
-    { value: 'sine.in', label: 'sine.in', group: 'Sine' },
-    { value: 'sine.out', label: 'sine.out', group: 'Sine' },
-    { value: 'sine.inOut', label: 'sine.inOut', group: 'Sine' },
-    { value: 'expo.in', label: 'expo.in', group: 'Expo' },
-    { value: 'expo.out', label: 'expo.out', group: 'Expo' },
-    { value: 'expo.inOut', label: 'expo.inOut', group: 'Expo' },
-    { value: 'back.in', label: 'back.in', group: 'Back' },
-    { value: 'back.out', label: 'back.out', group: 'Back' },
-    { value: 'back.inOut', label: 'back.inOut', group: 'Back' },
-    { value: 'elastic.in', label: 'elastic.in', group: 'Elastic' },
-    { value: 'elastic.out', label: 'elastic.out', group: 'Elastic' },
-    { value: 'elastic.inOut', label: 'elastic.inOut', group: 'Elastic' },
-    { value: 'bounce.in', label: 'bounce.in', group: 'Bounce' },
-    { value: 'bounce.out', label: 'bounce.out', group: 'Bounce' },
-    { value: 'bounce.inOut', label: 'bounce.inOut', group: 'Bounce' },
-    // You can extend with slowMo/steps/custom as needed later
-  ];
+  // easeOptions moved into EasePicker
 
   return (
     <Sidebar side="right">
@@ -130,13 +100,19 @@ export function AnimationSidebar() {
                     onChange={(e) => setDraftDuration(parseFloat(e.target.value) || 0)}
                   />
                   <label className="text-sm w-16 text-right">Ease</label>
-                  <div className="flex-1">
-                    <Combobox
-                      value={editing.ease}
-                      onChange={(val) => setDraftEase(val as any)}
-                      options={easeOptions}
-                      placeholder="Select ease"
-                    />
+                  <div className="flex items-center gap-2 flex-1">
+                    <div className="min-w-[140px] flex-1">
+                      <EasePicker value={editing.ease as any} onChange={(v) => setDraftEase(v as any)} />
+                    </div>
+                    <svg width="120" height="44" className="shrink-0 hidden md:block">
+                      <rect x="0" y="0" width="120" height="44" rx="4" ry="4" fill="none" stroke="rgb(75,85,99)" />
+                      {/* Reuse EasePicker's internal ease function by drawing via CSS-only preview is not practical here, omit detailed reimpl. */}
+                      <path d="" /* optional: keep empty or later refactor to shared util if we want a larger preview */
+                        transform="translate(5,5)"
+                        fill="none"
+                        stroke="rgb(59,130,246)"
+                        strokeWidth="2" />
+                    </svg>
                   </div>
                 </div>
                 <div className="flex items-center justify-between">
