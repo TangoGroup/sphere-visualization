@@ -380,6 +380,8 @@ uniform int uMaskInvert;
 uniform vec2 uMaskCenterNdc;
 uniform vec3 uColor;
 uniform float uOpacity;
+uniform vec3 uGlowColor;
+uniform float uGlowStrength;
 varying vec2 vNdc;
 varying float vArcBoost;
 varying float vSizeRand;
@@ -390,8 +392,8 @@ void main() {
   float r = sqrt(r2);
   // Discard square sprite corners so depth writes don't clip as boxes
   if (r > 1.0) { discard; }
-  // Core disc alpha only (no built-in glow; external bloom will handle halo)
-  float alpha = 1.0 - smoothstep(vCoreRadiusNorm, vCoreRadiusNorm + 0.001, r);
+  // Core disc alpha with a thicker feather to avoid precision artifacts
+  float alpha = 1.0 - smoothstep(vCoreRadiusNorm, vCoreRadiusNorm + 0.05, r);
   // Screen-space circular mask shared by color and alpha
   float screenMask = 1.0;
   if (uMaskEnabled > 0) {
@@ -406,7 +408,7 @@ void main() {
   alpha *= clamp(uOpacity, 0.0, 1.0);
   // Edge ring emission to tint bloom without altering core opacity
   float inner = vCoreRadiusNorm;
-  float end = mix(inner, 1.0, max(0.05, uGlowSoftness));
+  float end = mix(inner, 1.0, 0.3);
   float ring = 1.0 - smoothstep(inner, end, r);
   float emission = ring * clamp(uGlowStrength, 0.0, 3.0);
   vec3 color = (uColor + uGlowColor * emission * 0.4) * screenMask;
@@ -749,8 +751,8 @@ export function SphereWaveform({
             uniforms={u as unknown as { [key: string]: THREE.IUniform }}
             transparent
             depthWrite={false}
-            depthTest={false}
-            alphaTest={0}
+            depthTest
+            alphaTest={0.001}
             premultipliedAlpha={false}
             blending={THREE.NormalBlending}
           />
