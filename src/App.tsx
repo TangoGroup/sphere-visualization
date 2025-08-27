@@ -70,6 +70,9 @@ function Scene({ volume, vertexCount, pointSize, shellCount, freezeTime, advance
 }) {
   const bg = useMemo(() => new THREE.Color(backgroundTheme === 'dark' ? '#0b0f13' : '#ffffff'), [backgroundTheme]);
   const blendingMode = backgroundTheme === 'light' ? 'normal' : 'additive' as const;
+  const pc = (pointColor || '').trim().toLowerCase();
+  const isWhite = pc === '#ffffff' || pc === '#fff';
+  const displayPointColor = backgroundTheme === 'light' && isWhite ? '#0b0f13' : pointColor;
   return (
     <>
       <color attach="background" args={[bg]} />
@@ -103,7 +106,7 @@ function Scene({ volume, vertexCount, pointSize, shellCount, freezeTime, advance
           maskInvert={maskInvert}
           sineSpeed={sineSpeed}
           sineScale={sineScale}
-          pointColor={pointColor}
+          pointColor={displayPointColor}
           glowColor={glowColor}
           glowStrength={glowStrength}
           glowRadiusFactor={glowRadiusFactor}
