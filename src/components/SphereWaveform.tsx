@@ -86,6 +86,7 @@ interface Uniforms {
   uViewportWidth: { value: number };
   uViewportHeight: { value: number };
   uFov: { value: number }; // radians
+  uShellPhase: { value: number };
   uEnableRandomish: { value: number };
   uRandomishAmount: { value: number };
   uEnableSine: { value: number };
@@ -155,6 +156,7 @@ uniform float uPixelRatio;
 uniform float uViewportWidth;
 uniform float uViewportHeight;
 uniform float uFov;
+uniform float uShellPhase;
 uniform float uSizeRandomness;
 uniform float uGlowRadiusFactor;
 // softness removed
@@ -269,7 +271,7 @@ void main() {
   }
 
   // Base time
-  float t = uTime * 0.4;
+  float t = uTime * 0.4 + uShellPhase;
   
   float nRandomish = 0.0;
   if (uEnableRandomish > 0) {
@@ -518,6 +520,7 @@ export function SphereWaveform({
         uViewportWidth: { value: window.innerWidth },
         uViewportHeight: { value: window.innerHeight },
         uFov: { value: (60 * Math.PI) / 180 },
+        uShellPhase: { value: 0 },
         uSizeRandomness: { value: sizeRandomness },
         uEnableRandomish: { value: enableRandomishNoise ? 1 : 0 },
         uRandomishAmount: { value: randomishAmount },
@@ -715,7 +718,10 @@ export function SphereWaveform({
       u.uGlowColor.value.set(glowColor);
       u.uGlowStrength.value = THREE.MathUtils.clamp(glowStrength, 0, 3);
       u.uGlowRadiusFactor.value = Math.max(0, glowRadiusFactor);
-      // softness removed
+      // Per-shell phase: deterministic from base seed and shell index
+      const phaseBase = Math.sin((seed + i * 17.23) * 12.9898) * 43758.5453;
+      const jitter = 1.0; // read directly from config in App if needed; default 1 here
+      u.uShellPhase.value = (phaseBase - Math.floor(phaseBase)) * jitter;
       // Arcs
       u.uArcsActive.value = arcsActive;
       u.uArcCenters.value.set(centers);

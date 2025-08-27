@@ -164,14 +164,19 @@ type ConfigV19 = Omit<ConfigV18, 'version' | 'glowRadiusPx'> & {
 type ConfigV20 = Omit<ConfigV19, 'version' | 'glowSoftness'> & {
   version: 20;
 }
+
+type ConfigV21 = Omit<ConfigV20, 'version'> & {
+  version: 21;
+  shellPhaseJitter: number; // 0..2; per-shell temporal offset magnitude
+}
 // Current configuration interface
-export interface Config extends ConfigV20 {
-  version: 20;
+export interface Config extends ConfigV21 {
+  version: 21;
 }
 
 // Default configuration
 export const defaultConfig: Config = {
-  version: 20,
+  version: 21,
   // Global controls
   vertexCount: 400,
   pointSize: 0.04,
@@ -213,6 +218,7 @@ export const defaultConfig: Config = {
   pointColor: '#ffffff',
   glowColor: '#ffffff',
   glowRadiusFactor: 0,
+  shellPhaseJitter: 1.0,
   backgroundTheme: 'dark',
   sizeRandomness: 0.0,
   glowStrength: 0.0,
@@ -261,7 +267,7 @@ function migrateV1ToV2(config: ConfigV1): ConfigV2 {
   };
 }
 
-function migrateConfig(config: any): ConfigV14 | ConfigV15 | ConfigV16 | ConfigV17 | ConfigV18 | ConfigV19 | ConfigV20 {
+function migrateConfig(config: any): ConfigV14 | ConfigV15 | ConfigV16 | ConfigV17 | ConfigV18 | ConfigV19 | ConfigV20 | ConfigV21 {
   if (!config || typeof config !== 'object') {
     return defaultConfig;
   }
@@ -448,7 +454,9 @@ function migrateConfig(config: any): ConfigV14 | ConfigV15 | ConfigV16 | ConfigV
     case 19:
       return migrateV19ToV20(config as ConfigV19);
     case 20:
-      return config as ConfigV20;
+      return migrateV20ToV21(config as ConfigV20);
+    case 21:
+      return config as ConfigV21;
     default:
       console.warn(`Unknown config version ${version}, using defaults`);
       return defaultConfig;
@@ -634,6 +642,14 @@ function migrateV19ToV20(config: ConfigV19): ConfigV20 {
   } as unknown as ConfigV20;
 }
 
+function migrateV20ToV21(config: ConfigV20): ConfigV21 {
+  return {
+    ...config,
+    version: 21,
+    shellPhaseJitter: 1.0,
+  } as unknown as ConfigV21;
+}
+
 function migrateToLatest(config: any): Config {
   const migrated = migrateConfig(config);
   if (!migrated || typeof migrated !== 'object') {
@@ -665,6 +681,9 @@ function migrateToLatest(config: any): Config {
     return migrateV19ToV20(migrated as ConfigV19) as unknown as Config;
   }
   if ((migrated as ConfigV20).version === 20) {
+    return migrateV20ToV21(migrated as ConfigV20) as unknown as Config;
+  }
+  if ((migrated as ConfigV21).version === 21) {
     return migrated as Config;
   }
   // Fallback safety
