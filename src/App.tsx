@@ -12,8 +12,9 @@ import AnimationSidebar from '@/components/AnimationSidebar';
 import { useAnimationRunner } from '@/hooks/useAnimationRunner';
 import { useAnimationStore } from '@/stores/animationStore';
 import { useMicAnalyzer } from '@/hooks/useMicAnalyzer';
+import { EffectComposer, Bloom } from '@react-three/postprocessing';
 
-function Scene({ volume, vertexCount, pointSize, shellCount, freezeTime, advanceCount, enableRandomishNoise, randomishAmount, enableSineNoise, sineAmount, pulseSize, enableSpin, spinSpeed, spinAxisX, spinAxisY, maskEnabled, maskRadius, maskFeather, maskInvert, sineSpeed, sineScale, randomishSpeed, pointColor, backgroundTheme, enableRippleNoise, rippleAmount, rippleSpeed, rippleScale, enableSurfaceRipple, surfaceRippleAmount, surfaceRippleSpeed, surfaceRippleScale, enableArcs, arcMaxCount, arcSpawnRate, arcDuration, arcSpeed, arcSpanDeg, arcThickness, arcFeather, arcBrightness, arcAltitude, size, opacity, rotationX, rotationY, rotationZ }: { 
+function Scene({ volume, vertexCount, pointSize, shellCount, freezeTime, advanceCount, enableRandomishNoise, randomishAmount, enableSineNoise, sineAmount, pulseSize, enableSpin, spinSpeed, spinAxisX, spinAxisY, maskEnabled, maskRadius, maskFeather, maskInvert, sineSpeed, sineScale, randomishSpeed, pointColor, glowColor, glowStrength, glowRadiusFactor, glowSoftness, sizeRandomness, backgroundTheme, enableRippleNoise, rippleAmount, rippleSpeed, rippleScale, enableSurfaceRipple, surfaceRippleAmount, surfaceRippleSpeed, surfaceRippleScale, enableArcs, arcMaxCount, arcSpawnRate, arcDuration, arcSpeed, arcSpanDeg, arcThickness, arcFeather, arcBrightness, arcAltitude, size, opacity, rotationX, rotationY, rotationZ }: { 
   volume: number; 
   vertexCount: number; 
   pointSize: number; 
@@ -37,6 +38,11 @@ function Scene({ volume, vertexCount, pointSize, shellCount, freezeTime, advance
   sineScale: number;
   randomishSpeed: number;
   pointColor: string;
+  glowColor: string;
+  glowStrength: number;
+  glowRadiusFactor: number;
+  glowSoftness: number;
+  sizeRandomness: number;
   backgroundTheme: 'dark' | 'light';
   enableRippleNoise: boolean;
   rippleAmount: number;
@@ -98,6 +104,11 @@ function Scene({ volume, vertexCount, pointSize, shellCount, freezeTime, advance
           sineSpeed={sineSpeed}
           sineScale={sineScale}
           pointColor={pointColor}
+          glowColor={glowColor}
+          glowStrength={glowStrength}
+          glowRadiusFactor={glowRadiusFactor}
+          glowSoftness={glowSoftness}
+          sizeRandomness={sizeRandomness}
           blendingMode={blendingMode}
           
           enableRippleNoise={enableRippleNoise}
@@ -181,6 +192,11 @@ function App() {
               sineSpeed={config.sineSpeed}
               sineScale={config.sineScale}
               pointColor={config.pointColor}
+              glowColor={config.glowColor}
+              glowStrength={config.glowStrength}
+              glowRadiusFactor={config.glowRadiusFactor}
+              glowSoftness={config.glowSoftness}
+              sizeRandomness={config.sizeRandomness}
               backgroundTheme={config.backgroundTheme}
               enableRippleNoise={config.enableRippleNoise}
               rippleAmount={config.rippleAmount}
@@ -201,6 +217,14 @@ function App() {
               arcBrightness={config.arcBrightness}
               arcAltitude={config.arcAltitude}
             />
+            <EffectComposer>
+              <Bloom
+                intensity={Math.max(0, config.glowStrength) * 1.2}
+                luminanceThreshold={0.0}
+                luminanceSmoothing={Math.min(0.99, Math.max(0.0, config.glowSoftness))}
+                radius={Math.max(0.05, Math.min(0.5, config.glowRadiusFactor) * 2.0)}
+              />
+            </EffectComposer>
             <OrbitControls ref={controlsRef} enablePan={false} enableDamping dampingFactor={0.08} />
           </Canvas>
           <div className="absolute left-3 top-3 z-20">

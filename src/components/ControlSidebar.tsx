@@ -107,6 +107,24 @@ export function ControlSidebar() {
               </Button>
             </div>
           </div>
+
+          <div>
+            <label className="block text-sm font-medium mb-2">Point Size Randomness</label>
+            <Slider
+              value={[config.sizeRandomness]}
+              onValueChange={([value]) => setConfig({ sizeRandomness: value })}
+              min={0}
+              max={1}
+              step={0.01}
+              className="w-full"
+            />
+            <div className="flex items-center justify-between mt-1">
+              <div className="text-sm text-gray-400">{config.sizeRandomness.toFixed(2)}</div>
+              <Button size="icon" variant="outline" disabled={!draft} onClick={() => { addOrUpdateDraftProp('sizeRandomness', config.sizeRandomness); }} title="Add size randomness to active animation">
+                <Diamond className="text-orange-400" />
+              </Button>
+            </div>
+          </div>
           
           <div>
             <label className="block text-sm font-medium mb-2">Shell Count</label>
@@ -454,6 +472,69 @@ export function ControlSidebar() {
               <Button size="icon" variant="outline" disabled={!draft} onClick={() => { addOrUpdateDraftProp('pointColor', config.pointColor); }} title="Add color to active animation">
                 <Diamond className="text-orange-400" />
               </Button>
+            </div>
+            <div className="mt-4">
+              <label className="block text-sm font-medium mb-2">Glow Strength</label>
+              <Slider
+                value={[config.glowStrength]}
+                onValueChange={([value]) => setConfig({ glowStrength: value })}
+                min={0}
+                max={3}
+                step={0.01}
+                className="w-full"
+              />
+              <div className="flex items-center justify-between mt-1">
+                <div className="text-sm text-gray-400">{config.glowStrength.toFixed(2)}</div>
+                <Button size="icon" variant="outline" disabled={!draft} onClick={() => { addOrUpdateDraftProp('glowStrength', config.glowStrength); }} title="Add glow strength to active animation">
+                  <Diamond className="text-orange-400" />
+                </Button>
+              </div>
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-2">Glow Radius (× dot radius)</label>
+              <Slider
+                value={[Math.min(0.5, config.glowRadiusFactor)]}
+                onValueChange={([value]) => setConfig({ glowRadiusFactor: Math.min(0.5, value) })}
+                min={0}
+                max={0.5}
+                step={0.01}
+                className="w-full"
+              />
+              <div className="flex items-center justify-between mt-1">
+                <div className="text-sm text-gray-400">{Math.min(0.5, config.glowRadiusFactor).toFixed(2)}×</div>
+                <Button size="icon" variant="outline" disabled={!draft} onClick={() => { addOrUpdateDraftProp('glowRadiusFactor', Math.min(0.5, config.glowRadiusFactor)); }} title="Add glow radius factor to active animation">
+                  <Diamond className="text-orange-400" />
+                </Button>
+              </div>
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-2">Glow Softness</label>
+              <Slider
+                value={[config.glowSoftness]}
+                onValueChange={([value]) => setConfig({ glowSoftness: value })}
+                min={0}
+                max={1}
+                step={0.01}
+                className="w-full"
+              />
+              <div className="flex items-center justify-between mt-1">
+                <div className="text-sm text-gray-400">{config.glowSoftness.toFixed(2)}</div>
+                <Button size="icon" variant="outline" disabled={!draft} onClick={() => { addOrUpdateDraftProp('glowSoftness', config.glowSoftness); }} title="Add glow softness to active animation">
+                  <Diamond className="text-orange-400" />
+                </Button>
+              </div>
+            </div>
+            <div className="mt-2">
+              <BrandColorPicker
+                value={config.glowColor}
+                onChange={(hex) => setConfig({ glowColor: hex })}
+                label="Glow Color"
+              />
+              <div className="flex items-center justify-end mt-2">
+                <Button size="icon" variant="outline" disabled={!draft} onClick={() => { addOrUpdateDraftProp('glowColor', config.glowColor); }} title="Add glow color to active animation">
+                  <Diamond className="text-orange-400" />
+                </Button>
+              </div>
             </div>
             <div className="mt-4">
               <label className="block text-sm font-medium mb-2">Background</label>
@@ -831,7 +912,7 @@ export function ControlSidebar() {
                 <Slider
                   value={[config.spinSpeed]}
                   onValueChange={([value]) => setConfig({ spinSpeed: value })}
-                  min={0.1}
+                  min={0}
                   max={2.0}
                   step={0.05}
                   className="w-full"

@@ -56,6 +56,12 @@ export interface SphereWaveformProps {
   sineScale?: number; // scales aSeed phase contribution
   // Appearance
   pointColor?: string; // hex
+  glowColor?: string; // hex for glow
+  glowStrength?: number; // 0..3
+  glowRadiusFactor?: number; // per-side halo thickness as multiple of core radius
+  glowSoftness?: number; // 0..1 halo edge softness
+  // Point size randomness
+  sizeRandomness?: number; // 0..1 mixes base size with random [0..2]
   // Arcs (great-circle segments)
   enableArcs?: boolean;
   arcMaxCount?: number;
@@ -87,6 +93,12 @@ interface Uniforms {
   uRandomishSpeed: { value: number };
   uPulseSize: { value: number };
   uOpacity: { value: number };
+  // Size randomness
+  uSizeRandomness: { value: number };
+  // Halo expansion
+  uGlowRadiusFactor: { value: number };
+  uGlowSoftness: { value: number };
+  uExpandHalo: { value: number };
   // Ripple uniforms
   uEnableRipple: { value: number };
   uRippleAmount: { value: number };
@@ -109,11 +121,14 @@ interface Uniforms {
   uMaskRadiusPx: { value: number };
   uMaskFeatherPx: { value: number };
   uMaskInvert: { value: number };
+  uMaskCenterNdc: { value: THREE.Vector2 };
   // Sine noise uniforms
   uSineSpeed: { value: number };
   uSineScale: { value: number };
   // Appearance
   uColor: { value: THREE.Color };
+  uGlowColor: { value: THREE.Color };
+  uGlowStrength: { value: number };
   // Arcs
   uArcsActive: { value: number };
   uArcCenters: { value: Float32Array };
@@ -140,6 +155,9 @@ uniform float uPixelRatio;
 uniform float uViewportWidth;
 uniform float uViewportHeight;
 uniform float uFov;
+uniform float uSizeRandomness;
+uniform float uGlowRadiusFactor;
+uniform float uGlowSoftness;
 uniform int uEnableRandomish;
 uniform float uRandomishAmount;
 uniform int uEnableSine;
@@ -179,6 +197,8 @@ uniform float uSpinAxisY;
 
 varying vec2 vNdc;
 varying float vArcBoost;
+varying float vSizeRand;
+varying float vCoreRadiusNorm;
 
 // Simple hash function for deterministic pseudo-random values
 float hash(float n) { return fract(sin(n) * 43758.5453); }
@@ -336,8 +356,16 @@ void main() {
 
   // FOV-correct perspective size attenuation
   float scale = uViewportHeight / (2.0 * tan(uFov * 0.5));
-  float size = uPointSize * uPixelRatio * scale / -mvPosition.z;
-  gl_PointSize = clamp(size, 0.0, 2048.0);
+  // Per-vertex size randomness: [0..2] factor mixed by uSizeRandomness
+  float rand01 = hash(aSeed);
+  float sizeFactor = mix(1.0, rand01 * 2.0, clamp(uSizeRandomness, 0.0, 1.0));
+  vSizeRand = sizeFactor;
+  float basePx = (uPointSize * sizeFactor) * uPixelRatio * scale / -mvPosition.z;
+  // Halo scales with core radius: thickness per side = factor * basePx
+  float haloPx = max(0.0, uGlowRadiusFactor) * basePx;
+  float expanded = basePx + 2.0 * haloPx;
+  vCoreRadiusNorm = (expanded > 0.0) ? clamp(basePx / expanded, 0.0, 1.0) : 1.0;
+  gl_PointSize = clamp(expanded, 0.0, 2048.0);
 }
 `;
 
@@ -349,26 +377,36 @@ uniform int uMaskEnabled;
 uniform float uMaskRadiusPx;
 uniform float uMaskFeatherPx;
 uniform int uMaskInvert;
+uniform vec2 uMaskCenterNdc;
 uniform vec3 uColor;
 uniform float uOpacity;
 varying vec2 vNdc;
 varying float vArcBoost;
+varying float vSizeRand;
+varying float vCoreRadiusNorm;
 void main() {
   vec2 uv = gl_PointCoord * 2.0 - 1.0;
   float r2 = dot(uv, uv);
-  float alpha = smoothstep(1.0, 0.8, r2);
+  float r = sqrt(r2);
+  // Discard square sprite corners so depth writes don't clip as boxes
+  if (r > 1.0) { discard; }
+  // Core disc alpha only (no built-in glow; external bloom will handle halo)
+  float alpha = 1.0 - smoothstep(vCoreRadiusNorm, vCoreRadiusNorm + 0.001, r);
+  // Screen-space circular mask shared by color and alpha
+  float screenMask = 1.0;
   if (uMaskEnabled > 0) {
-    // Compute pixel-space distance from screen center using NDC of the point
-    // NDC [-1,1] maps to pixels via width/2 and height/2 scaling
-    vec2 deltaPx = vec2(vNdc.x * 0.5 * uViewportWidth, vNdc.y * 0.5 * uViewportHeight);
+    // Pixel-space distance to mask center (attached to sphere center in NDC)
+    vec2 deltaPx = vec2((vNdc.x - uMaskCenterNdc.x) * 0.5 * uViewportWidth, (vNdc.y - uMaskCenterNdc.y) * 0.5 * uViewportHeight);
     float distPx = length(deltaPx);
     float inside = 1.0 - smoothstep(uMaskRadiusPx, uMaskRadiusPx + max(0.0001, uMaskFeatherPx), distPx);
-    float mask = (uMaskInvert > 0) ? (1.0 - inside) : inside;
-    alpha *= clamp(mask, 0.0, 1.0);
+    screenMask = (uMaskInvert > 0) ? (1.0 - inside) : inside;
+    alpha *= clamp(screenMask, 0.0, 1.0);
   }
   alpha *= min(3.0, 1.0 + vArcBoost);
   alpha *= clamp(uOpacity, 0.0, 1.0);
-  gl_FragColor = vec4(uColor, alpha);
+  vec3 color = uColor * screenMask;
+  float outAlpha = alpha;
+  gl_FragColor = vec4(color, outAlpha);
 }
 `;
 
@@ -426,6 +464,11 @@ export function SphereWaveform({
   sineSpeed = 1.7,
   sineScale = 1.0,
   pointColor = '#ffffff',
+  glowColor = '#ffffff',
+  glowStrength = 0.0,
+  glowRadiusFactor = 0,
+  glowSoftness = 0.5,
+  sizeRandomness = 0.0,
   enableArcs = false,
   arcMaxCount = 4,
   arcSpawnRate = 0.25,
@@ -436,7 +479,7 @@ export function SphereWaveform({
   arcFeather = 0.04,
   arcBrightness = 1.0,
   arcAltitude = 0.02,
-  blendingMode = 'additive',
+  // blendingMode kept for API stability
 }: SphereWaveformProps) {
   const uniformsRef = useRef<Uniforms[] | null>(null);
   const prevNowRef = useRef<number | null>(null);
@@ -468,6 +511,7 @@ export function SphereWaveform({
         uViewportWidth: { value: window.innerWidth },
         uViewportHeight: { value: window.innerHeight },
         uFov: { value: (60 * Math.PI) / 180 },
+        uSizeRandomness: { value: sizeRandomness },
         uEnableRandomish: { value: enableRandomishNoise ? 1 : 0 },
         uRandomishAmount: { value: randomishAmount },
         uEnableSine: { value: enableSineNoise ? 1 : 0 },
@@ -492,9 +536,15 @@ export function SphereWaveform({
         uMaskRadiusPx: { value: 0 },
         uMaskFeatherPx: { value: 0 },
         uMaskInvert: { value: maskInvert ? 1 : 0 },
+        uMaskCenterNdc: { value: new THREE.Vector2(0, 0) },
         uSineSpeed: { value: sineSpeed },
         uSineScale: { value: sineScale },
         uColor: { value: new THREE.Color(pointColor) },
+        uGlowColor: { value: new THREE.Color(glowColor) },
+        uGlowStrength: { value: glowStrength },
+        uGlowRadiusFactor: { value: glowRadiusFactor },
+        uGlowSoftness: { value: glowSoftness },
+        uExpandHalo: { value: 1 },
         uArcsActive: { value: 0 },
         uArcCenters: { value: new Float32Array(8 * 3) },
         uArcTangents: { value: new Float32Array(8 * 3) },
@@ -626,6 +676,7 @@ export function SphereWaveform({
       u.uRandomishSpeed.value = randomishSpeed;
       u.uPulseSize.value = THREE.MathUtils.clamp(pulseSize, 0, 1);
       u.uOpacity.value = THREE.MathUtils.clamp(opacity, 0, 1);
+      u.uSizeRandomness.value = THREE.MathUtils.clamp(sizeRandomness, 0, 1);
       // Ripple
       u.uEnableRipple.value = enableRippleNoise ? 1 : 0;
       u.uRippleAmount.value = THREE.MathUtils.clamp(rippleAmount, 0, 1);
@@ -640,17 +691,25 @@ export function SphereWaveform({
       u.uSpinSpeed.value = spinSpeed;
       u.uSpinAxisX.value = spinAxisX;
       u.uSpinAxisY.value = spinAxisY;
-      // Screen-space mask updates
+      // Mask that follows sphere center in screen space, and scales with view
       u.uMaskEnabled.value = maskEnabled ? 1 : 0;
       u.uMaskInvert.value = maskInvert ? 1 : 0;
+      const sphereCenter = new THREE.Vector3(0, 0, 0);
+      const centerNdc = sphereCenter.clone().project(cam);
+      u.uMaskCenterNdc.value.set(centerNdc.x, centerNdc.y);
       const minHalf = Math.min(stateFrame.size.width, stateFrame.size.height) * 0.5;
-      u.uMaskRadiusPx.value = THREE.MathUtils.clamp(maskRadius, 0, 1) * minHalf;
-      u.uMaskFeatherPx.value = THREE.MathUtils.clamp(maskFeather, 0, 1) * minHalf;
+      // Map normalized maskRadius to pixels, adjusted by zoom (keeps scale roughly stable)
+      u.uMaskRadiusPx.value = THREE.MathUtils.clamp(maskRadius, 0, 1) * minHalf * (1.0 / Math.max(1e-3, cam.zoom));
+      u.uMaskFeatherPx.value = THREE.MathUtils.clamp(maskFeather, 0, 1) * minHalf * (1.0 / Math.max(1e-3, cam.zoom));
       // Sine noise
       u.uSineSpeed.value = sineSpeed;
       u.uSineScale.value = sineScale;
       // Color
       u.uColor.value.set(pointColor);
+      u.uGlowColor.value.set(glowColor);
+      u.uGlowStrength.value = THREE.MathUtils.clamp(glowStrength, 0, 3);
+      u.uGlowRadiusFactor.value = Math.max(0, glowRadiusFactor);
+      u.uGlowSoftness.value = THREE.MathUtils.clamp(glowSoftness, 0, 1);
       // Arcs
       u.uArcsActive.value = arcsActive;
       u.uArcCenters.value.set(centers);
@@ -673,7 +732,9 @@ export function SphereWaveform({
   return (
     <group scale={[size, size, size]} rotation={[rotX, rotY, rotZ]}>
       {uniformsRef.current!.map((u, i) => (
-        <points key={`points-${i}`} renderOrder={i}>
+        <group key={`shell-${i}`} renderOrder={i}>
+        {/* Single pass again: core only; bloom will provide glow */}
+        <points>
           <bufferGeometry key={`${vertexCount}-${radius}-${seed}-${i}`}>
             <bufferAttribute attach="attributes-position" args={[positions, 3]} />
             <bufferAttribute attach="attributes-aSeed" args={[seeds, 1]} />
@@ -685,9 +746,12 @@ export function SphereWaveform({
             transparent
             depthWrite={false}
             depthTest={false}
-            blending={blendingMode === 'additive' ? THREE.AdditiveBlending : THREE.NormalBlending}
+            alphaTest={0}
+            premultipliedAlpha={false}
+            blending={THREE.NormalBlending}
           />
         </points>
+        </group>
       ))}
     </group>
   );

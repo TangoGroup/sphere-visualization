@@ -140,14 +140,35 @@ type ConfigV16 = Omit<ConfigV15, 'version'> & {
   rotationZ: number; // degrees
 }
 
+type ConfigV17 = Omit<ConfigV16, 'version'> & {
+  version: 17;
+  // Point size variation and glow appearance
+  sizeRandomness: number; // 0..1, mixes base size with random [0..2] multiplier
+  glowStrength: number; // 0..3, visual halo intensity
+  glowColor: string; // hex color for glow contribution
+}
+
+type ConfigV18 = Omit<ConfigV17, 'version'> & {
+  version: 18;
+  // Halo sprite expansion parameters
+  glowRadiusPx: number; // 0..128 px of halo thickness per side
+  glowSoftness: number; // 0..1 softness of halo edge
+}
+
+type ConfigV19 = Omit<ConfigV18, 'version' | 'glowRadiusPx'> & {
+  version: 19;
+  // Halo thickness scales with core dot radius per point
+  glowRadiusFactor: number; // 0..2, per-side thickness as multiple of core radius
+}
+
 // Current configuration interface
-export interface Config extends ConfigV16 {
-  version: 16;
+export interface Config extends ConfigV19 {
+  version: 19;
 }
 
 // Default configuration
 export const defaultConfig: Config = {
-  version: 16,
+  version: 19,
   // Global controls
   vertexCount: 400,
   pointSize: 0.04,
@@ -187,7 +208,12 @@ export const defaultConfig: Config = {
   
   // Appearance
   pointColor: '#ffffff',
+  glowColor: '#ffffff',
+  glowRadiusFactor: 0,
+  glowSoftness: 0.5,
   backgroundTheme: 'dark',
+  sizeRandomness: 0.0,
+  glowStrength: 0.0,
   
   // Microphone
   micVolume: 1.0,
@@ -233,7 +259,7 @@ function migrateV1ToV2(config: ConfigV1): ConfigV2 {
   };
 }
 
-function migrateConfig(config: any): ConfigV14 | ConfigV15 | ConfigV16 {
+function migrateConfig(config: any): ConfigV14 | ConfigV15 | ConfigV16 | ConfigV17 | ConfigV18 | ConfigV19 {
   if (!config || typeof config !== 'object') {
     return defaultConfig;
   }
@@ -410,9 +436,15 @@ function migrateConfig(config: any): ConfigV14 | ConfigV15 | ConfigV16 {
     case 14:
       return config as ConfigV14;
     case 15:
-      return migrateV15ToV16(config as ConfigV15);
+      return migrateV16ToV17(migrateV15ToV16(config as ConfigV15));
     case 16:
-      return config as ConfigV16;
+      return migrateV16ToV17(config as ConfigV16);
+    case 17:
+      return migrateV17ToV18(config as ConfigV17);
+    case 18:
+      return migrateV18ToV19(config as ConfigV18);
+    case 19:
+      return config as ConfigV19;
     default:
       console.warn(`Unknown config version ${version}, using defaults`);
       return defaultConfig;
@@ -561,6 +593,35 @@ function migrateV15ToV16(config: ConfigV15): ConfigV16 {
   } as unknown as ConfigV16;
 }
 
+function migrateV16ToV17(config: ConfigV16): ConfigV17 {
+  return {
+    ...config,
+    version: 17,
+    sizeRandomness: 0.0,
+    glowStrength: 0.0,
+    glowColor: '#ffffff',
+  } as unknown as ConfigV17;
+}
+
+function migrateV17ToV18(config: ConfigV17): ConfigV18 {
+  return {
+    ...config,
+    version: 18,
+    glowRadiusPx: 0,
+    glowSoftness: 0.5,
+  } as unknown as ConfigV18;
+}
+
+function migrateV18ToV19(config: ConfigV18): ConfigV19 {
+  // Map px radius to a small default factor; we can’t infer basePx here
+  const defaultFactor = (config.glowRadiusPx && config.glowRadiusPx > 0) ? 0.2 : 0;
+  return {
+    ...config,
+    version: 19,
+    glowRadiusFactor: defaultFactor,
+  } as unknown as ConfigV19;
+}
+
 function migrateToLatest(config: any): Config {
   const migrated = migrateConfig(config);
   if (!migrated || typeof migrated !== 'object') {
@@ -568,12 +629,27 @@ function migrateToLatest(config: any): Config {
   }
   if ((migrated as ConfigV14).version === 14) {
     const v15 = migrateV14ToV15(migrated as ConfigV14);
-    return migrateV15ToV16(v15) as Config;
+    const v16 = migrateV15ToV16(v15);
+    const v17 = migrateV16ToV17(v16);
+    return migrateV17ToV18(v17) as unknown as Config;
   }
   if ((migrated as ConfigV15).version === 15) {
-    return migrateV15ToV16(migrated as ConfigV15) as Config;
+    const v16 = migrateV15ToV16(migrated as ConfigV15);
+    const v17 = migrateV16ToV17(v16);
+    return migrateV17ToV18(v17) as unknown as Config;
   }
   if ((migrated as ConfigV16).version === 16) {
+    const v17 = migrateV16ToV17(migrated as ConfigV16);
+    return migrateV17ToV18(v17) as unknown as Config;
+  }
+  if ((migrated as ConfigV17).version === 17) {
+    const v18 = migrateV17ToV18(migrated as ConfigV17);
+    return v18 as unknown as Config;
+  }
+  if ((migrated as ConfigV18).version === 18) {
+    return migrateV18ToV19(migrated as ConfigV18) as unknown as Config;
+  }
+  if ((migrated as ConfigV19).version === 19) {
     return migrated as Config;
   }
   // Fallback safety
