@@ -210,7 +210,7 @@ export const defaultConfig: Config = {
   pointColor: '#ffffff',
   glowColor: '#ffffff',
   glowRadiusFactor: 0,
-  glowSoftness: 0.5,
+  glowSoftness: 0.0,
   backgroundTheme: 'dark',
   sizeRandomness: 0.0,
   glowStrength: 0.0,
@@ -608,7 +608,7 @@ function migrateV17ToV18(config: ConfigV17): ConfigV18 {
     ...config,
     version: 18,
     glowRadiusPx: 0,
-    glowSoftness: 0.5,
+    glowSoftness: 0.0,
   } as unknown as ConfigV18;
 }
 
