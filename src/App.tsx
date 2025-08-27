@@ -14,7 +14,7 @@ import { useAnimationStore } from '@/stores/animationStore';
 import { useMicAnalyzer } from '@/hooks/useMicAnalyzer';
 import { EffectComposer, Bloom } from '@react-three/postprocessing';
 
-function Scene({ volume, vertexCount, pointSize, shellCount, freezeTime, advanceCount, enableRandomishNoise, randomishAmount, enableSineNoise, sineAmount, pulseSize, enableSpin, spinSpeed, spinAxisX, spinAxisY, maskEnabled, maskRadius, maskFeather, maskInvert, sineSpeed, sineScale, randomishSpeed, pointColor, glowColor, glowStrength, glowRadiusFactor, glowSoftness, sizeRandomness, backgroundTheme, enableRippleNoise, rippleAmount, rippleSpeed, rippleScale, enableSurfaceRipple, surfaceRippleAmount, surfaceRippleSpeed, surfaceRippleScale, enableArcs, arcMaxCount, arcSpawnRate, arcDuration, arcSpeed, arcSpanDeg, arcThickness, arcFeather, arcBrightness, arcAltitude, size, opacity, rotationX, rotationY, rotationZ }: { 
+function Scene({ volume, vertexCount, pointSize, shellCount, freezeTime, advanceCount, enableRandomishNoise, randomishAmount, enableSineNoise, sineAmount, pulseSize, enableSpin, spinSpeed, spinAxisX, spinAxisY, maskEnabled, maskRadius, maskFeather, maskInvert, sineSpeed, sineScale, randomishSpeed, pointColor, glowColor, glowStrength, glowRadiusFactor, sizeRandomness, backgroundTheme, enableRippleNoise, rippleAmount, rippleSpeed, rippleScale, enableSurfaceRipple, surfaceRippleAmount, surfaceRippleSpeed, surfaceRippleScale, enableArcs, arcMaxCount, arcSpawnRate, arcDuration, arcSpeed, arcSpanDeg, arcThickness, arcFeather, arcBrightness, arcAltitude, size, opacity, rotationX, rotationY, rotationZ }: { 
   volume: number; 
   vertexCount: number; 
   pointSize: number; 
@@ -41,7 +41,6 @@ function Scene({ volume, vertexCount, pointSize, shellCount, freezeTime, advance
   glowColor: string;
   glowStrength: number;
   glowRadiusFactor: number;
-  glowSoftness: number;
   sizeRandomness: number;
   backgroundTheme: 'dark' | 'light';
   enableRippleNoise: boolean;
@@ -110,7 +109,6 @@ function Scene({ volume, vertexCount, pointSize, shellCount, freezeTime, advance
           glowColor={glowColor}
           glowStrength={glowStrength}
           glowRadiusFactor={glowRadiusFactor}
-          glowSoftness={glowSoftness}
           sizeRandomness={sizeRandomness}
           blendingMode={blendingMode}
           
@@ -198,7 +196,6 @@ function App() {
               glowColor={config.glowColor}
               glowStrength={config.glowStrength}
               glowRadiusFactor={config.glowRadiusFactor}
-              glowSoftness={config.glowSoftness}
               sizeRandomness={config.sizeRandomness}
               backgroundTheme={config.backgroundTheme}
               enableRippleNoise={config.enableRippleNoise}
@@ -224,7 +221,7 @@ function App() {
               <Bloom
                 intensity={Math.max(0, config.glowStrength) * 1.5}
                 luminanceThreshold={0.0}
-                luminanceSmoothing={Math.min(0.99, Math.max(0.0, config.glowSoftness))}
+                luminanceSmoothing={0.0}
                 radius={Math.max(0.05, Math.min(0.5, config.glowRadiusFactor) * 2.0)}
               />
             </EffectComposer>

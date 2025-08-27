@@ -507,23 +507,7 @@ export function ControlSidebar() {
                 </Button>
               </div>
             </div>
-            <div>
-              <label className="block text-sm font-medium mb-2">Glow Softness</label>
-              <Slider
-                value={[config.glowSoftness]}
-                onValueChange={([value]) => setConfig({ glowSoftness: value })}
-                min={0}
-                max={1}
-                step={0.01}
-                className="w-full"
-              />
-              <div className="flex items-center justify-between mt-1">
-                <div className="text-sm text-gray-400">{config.glowSoftness.toFixed(2)}</div>
-                <Button size="icon" variant="outline" disabled={!draft} onClick={() => { addOrUpdateDraftProp('glowSoftness', config.glowSoftness); }} title="Add glow softness to active animation">
-                  <Diamond className="text-orange-400" />
-                </Button>
-              </div>
-            </div>
+            {/* Glow Softness removed */}
             <div className="mt-2">
               <BrandColorPicker
                 value={config.glowColor}

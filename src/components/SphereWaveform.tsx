@@ -59,7 +59,7 @@ export interface SphereWaveformProps {
   glowColor?: string; // hex for glow
   glowStrength?: number; // 0..3
   glowRadiusFactor?: number; // per-side halo thickness as multiple of core radius
-  glowSoftness?: number; // 0..1 halo edge softness
+  // glowSoftness removed in v20
   // Point size randomness
   sizeRandomness?: number; // 0..1 mixes base size with random [0..2]
   // Arcs (great-circle segments)
@@ -97,7 +97,7 @@ interface Uniforms {
   uSizeRandomness: { value: number };
   // Halo expansion
   uGlowRadiusFactor: { value: number };
-  uGlowSoftness: { value: number };
+  // uGlowSoftness removed
   uExpandHalo: { value: number };
   // Ripple uniforms
   uEnableRipple: { value: number };
@@ -157,7 +157,7 @@ uniform float uViewportHeight;
 uniform float uFov;
 uniform float uSizeRandomness;
 uniform float uGlowRadiusFactor;
-uniform float uGlowSoftness;
+// softness removed
 uniform int uEnableRandomish;
 uniform float uRandomishAmount;
 uniform int uEnableSine;
@@ -472,7 +472,7 @@ export function SphereWaveform({
   glowColor = '#ffffff',
   glowStrength = 0.0,
   glowRadiusFactor = 0,
-  glowSoftness = 0.5,
+  // softness removed
   sizeRandomness = 0.0,
   enableArcs = false,
   arcMaxCount = 4,
@@ -548,7 +548,6 @@ export function SphereWaveform({
         uGlowColor: { value: new THREE.Color(glowColor) },
         uGlowStrength: { value: glowStrength },
         uGlowRadiusFactor: { value: glowRadiusFactor },
-        uGlowSoftness: { value: glowSoftness },
         uExpandHalo: { value: 1 },
         uArcsActive: { value: 0 },
         uArcCenters: { value: new Float32Array(8 * 3) },
@@ -714,7 +713,7 @@ export function SphereWaveform({
       u.uGlowColor.value.set(glowColor);
       u.uGlowStrength.value = THREE.MathUtils.clamp(glowStrength, 0, 3);
       u.uGlowRadiusFactor.value = Math.max(0, glowRadiusFactor);
-      u.uGlowSoftness.value = THREE.MathUtils.clamp(glowSoftness, 0, 1);
+      // softness removed
       // Arcs
       u.uArcsActive.value = arcsActive;
       u.uArcCenters.value.set(centers);
