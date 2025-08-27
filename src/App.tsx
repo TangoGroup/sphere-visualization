@@ -222,7 +222,7 @@ function App() {
             />
             <EffectComposer>
               <Bloom
-                intensity={Math.max(0, config.glowStrength) * 1.2}
+                intensity={Math.max(0, config.glowStrength) * 1.5}
                 luminanceThreshold={0.0}
                 luminanceSmoothing={Math.min(0.99, Math.max(0.0, config.glowSoftness))}
                 radius={Math.max(0.05, Math.min(0.5, config.glowRadiusFactor) * 2.0)}

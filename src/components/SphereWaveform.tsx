@@ -404,7 +404,12 @@ void main() {
   }
   alpha *= min(3.0, 1.0 + vArcBoost);
   alpha *= clamp(uOpacity, 0.0, 1.0);
-  vec3 color = uColor * screenMask;
+  // Edge ring emission to tint bloom without altering core opacity
+  float inner = vCoreRadiusNorm;
+  float end = mix(inner, 1.0, max(0.05, uGlowSoftness));
+  float ring = 1.0 - smoothstep(inner, end, r);
+  float emission = ring * clamp(uGlowStrength, 0.0, 3.0);
+  vec3 color = (uColor + uGlowColor * emission * 0.4) * screenMask;
   float outAlpha = alpha;
   gl_FragColor = vec4(color, outAlpha);
 }
