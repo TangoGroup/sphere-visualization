@@ -75,6 +75,12 @@ export interface SphereWaveformProps {
   arcAltitude?: number;
   // Rendering mode
   blendingMode?: 'additive' | 'normal';
+  // Modulation sources
+  micEnvelope?: number; // 0..1
+  randomishMicModAmount?: number; // 0..1
+  sineMicModAmount?: number; // 0..1
+  rippleMicModAmount?: number; // 0..1
+  surfaceRippleMicModAmount?: number; // 0..1
 }
 
 interface Uniforms {
@@ -489,6 +495,12 @@ export function SphereWaveform({
   arcBrightness = 1.0,
   arcAltitude = 0.02,
   // blendingMode kept for API stability
+  // Modulation inputs (optional)
+  micEnvelope = 0,
+  randomishMicModAmount = 0,
+  sineMicModAmount = 0,
+  rippleMicModAmount = 0,
+  surfaceRippleMicModAmount = 0,
 }: SphereWaveformProps) {
   const uniformsRef = useRef<Uniforms[] | null>(null);
   const prevNowRef = useRef<number | null>(null);
@@ -679,21 +691,40 @@ export function SphereWaveform({
       }
       u.uVolume.value = THREE.MathUtils.clamp(volume, 0, 1);
       u.uEnableRandomish.value = enableRandomishNoise ? 1 : 0;
-      u.uRandomishAmount.value = THREE.MathUtils.clamp(randomishAmount, 0, 1);
+      const micEnv = THREE.MathUtils.clamp(micEnvelope, 0, 1);
+      const randomishAmountFinal = THREE.MathUtils.clamp(
+        (randomishAmount ?? 0) + micEnv * THREE.MathUtils.clamp(randomishMicModAmount ?? 0, 0, 1),
+        0,
+        1
+      );
+      u.uRandomishAmount.value = randomishAmountFinal;
       u.uEnableSine.value = enableSineNoise ? 1 : 0;
-      u.uSineAmount.value = THREE.MathUtils.clamp(sineAmount, 0, 1);
+      const sineAmountFinal = THREE.MathUtils.clamp(
+        (sineAmount ?? 0) + micEnv * THREE.MathUtils.clamp(sineMicModAmount ?? 0, 0, 1),
+        0,
+        1
+      );
+      u.uSineAmount.value = sineAmountFinal;
       u.uRandomishSpeed.value = randomishSpeed;
       u.uPulseSize.value = THREE.MathUtils.clamp(pulseSize, 0, 1);
       u.uOpacity.value = THREE.MathUtils.clamp(opacity, 0, 1);
       u.uSizeRandomness.value = THREE.MathUtils.clamp(sizeRandomness, 0, 1);
       // Ripple
       u.uEnableRipple.value = enableRippleNoise ? 1 : 0;
-      u.uRippleAmount.value = THREE.MathUtils.clamp(rippleAmount, 0, 1);
+      u.uRippleAmount.value = THREE.MathUtils.clamp(
+        (rippleAmount ?? 0) + micEnv * THREE.MathUtils.clamp(rippleMicModAmount ?? 0, 0, 1),
+        0,
+        1
+      );
       u.uRippleSpeed.value = rippleSpeed;
       u.uRippleScale.value = rippleScale;
       // Surface ripple
       u.uEnableSurfaceRipple.value = enableSurfaceRipple ? 1 : 0;
-      u.uSurfaceRippleAmount.value = THREE.MathUtils.clamp(surfaceRippleAmount, 0, 1);
+      u.uSurfaceRippleAmount.value = THREE.MathUtils.clamp(
+        (surfaceRippleAmount ?? 0) + micEnv * THREE.MathUtils.clamp(surfaceRippleMicModAmount ?? 0, 0, 1),
+        0,
+        1
+      );
       u.uSurfaceRippleSpeed.value = surfaceRippleSpeed;
       u.uSurfaceRippleScale.value = surfaceRippleScale;
       u.uEnableSpin.value = enableSpin ? 1 : 0;

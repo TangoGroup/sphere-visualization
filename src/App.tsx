@@ -14,7 +14,7 @@ import { useAnimationStore } from '@/stores/animationStore';
 import { useMicAnalyzer } from '@/hooks/useMicAnalyzer';
 import { EffectComposer, Bloom } from '@react-three/postprocessing';
 
-function Scene({ volume, vertexCount, pointSize, shellCount, freezeTime, advanceCount, enableRandomishNoise, randomishAmount, enableSineNoise, sineAmount, pulseSize, enableSpin, spinSpeed, spinAxisX, spinAxisY, maskEnabled, maskRadius, maskFeather, maskInvert, sineSpeed, sineScale, randomishSpeed, pointColor, glowColor, glowStrength, glowRadiusFactor, sizeRandomness, backgroundTheme, enableRippleNoise, rippleAmount, rippleSpeed, rippleScale, enableSurfaceRipple, surfaceRippleAmount, surfaceRippleSpeed, surfaceRippleScale, enableArcs, arcMaxCount, arcSpawnRate, arcDuration, arcSpeed, arcSpanDeg, arcThickness, arcFeather, arcBrightness, arcAltitude, size, opacity, rotationX, rotationY, rotationZ }: { 
+function Scene({ volume, vertexCount, pointSize, shellCount, freezeTime, advanceCount, enableRandomishNoise, randomishAmount, enableSineNoise, sineAmount, pulseSize, enableSpin, spinSpeed, spinAxisX, spinAxisY, maskEnabled, maskRadius, maskFeather, maskInvert, sineSpeed, sineScale, randomishSpeed, pointColor, glowColor, glowStrength, glowRadiusFactor, sizeRandomness, backgroundTheme, enableRippleNoise, rippleAmount, rippleSpeed, rippleScale, enableSurfaceRipple, surfaceRippleAmount, surfaceRippleSpeed, surfaceRippleScale, enableArcs, arcMaxCount, arcSpawnRate, arcDuration, arcSpeed, arcSpanDeg, arcThickness, arcFeather, arcBrightness, arcAltitude, size, opacity, rotationX, rotationY, rotationZ, micEnvelope, randomishMicModAmount, sineMicModAmount, rippleMicModAmount, surfaceRippleMicModAmount }: { 
   volume: number; 
   vertexCount: number; 
   pointSize: number; 
@@ -66,6 +66,11 @@ function Scene({ volume, vertexCount, pointSize, shellCount, freezeTime, advance
   rotationX: number;
   rotationY: number;
   rotationZ: number;
+  micEnvelope: number;
+  randomishMicModAmount: number;
+  sineMicModAmount: number;
+  rippleMicModAmount: number;
+  surfaceRippleMicModAmount: number;
 }) {
   const bg = useMemo(() => new THREE.Color(backgroundTheme === 'dark' ? '#0b0f13' : '#ffffff'), [backgroundTheme]);
   const blendingMode = backgroundTheme === 'light' ? 'normal' : 'additive' as const;
@@ -130,6 +135,11 @@ function Scene({ volume, vertexCount, pointSize, shellCount, freezeTime, advance
           arcFeather={arcFeather}
           arcBrightness={arcBrightness}
           arcAltitude={arcAltitude}
+          micEnvelope={micEnvelope}
+          randomishMicModAmount={randomishMicModAmount}
+          sineMicModAmount={sineMicModAmount}
+          rippleMicModAmount={rippleMicModAmount}
+          surfaceRippleMicModAmount={surfaceRippleMicModAmount}
         />
       </Suspense>
     </>
@@ -155,8 +165,9 @@ function App() {
 
   // Apply additional UI smoothing as EMA on top of analyzer's base smoothing
   const micSmoothed = mic.volume; // analyzer already applies baseline smoothing
-  const micWithGain = config.micEnabled ? Math.min(11, config.micVolume * micSmoothed) : 1;
-  const effectiveVolume = Math.min(1, micWithGain * config.volume);
+  const micEnvelope = config.micEnabled ? Math.min(1, config.micVolume * micSmoothed) : 0;
+  const globalMicFactor = config.micAffectsGlobal ? Math.min(11, config.micVolume * micSmoothed) : 1;
+  const effectiveVolume = Math.min(1, globalMicFactor * config.volume);
 
   return (
     <SidebarProvider>
@@ -166,6 +177,11 @@ function App() {
           <Canvas dpr={[1, 2]} camera={{ position: [0, 0, 3], fov: 60 }}>
             <Scene
               volume={effectiveVolume}
+              micEnvelope={micEnvelope}
+              randomishMicModAmount={config.randomishMicModAmount}
+              sineMicModAmount={config.sineMicModAmount}
+              rippleMicModAmount={config.rippleMicModAmount}
+              surfaceRippleMicModAmount={config.surfaceRippleMicModAmount}
               vertexCount={config.vertexCount}
               pointSize={config.pointSize}
               shellCount={config.shellCount}

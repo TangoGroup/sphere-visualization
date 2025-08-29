@@ -169,14 +169,34 @@ type ConfigV21 = Omit<ConfigV20, 'version'> & {
   version: 21;
   shellPhaseJitter: number; // 0..2; per-shell temporal offset magnitude
 }
+
+type ConfigV22 = Omit<ConfigV21, 'version'> & {
+  version: 22;
+  // Modulation settings
+  // If true, mic multiplies global effect power (backwards-compatible behavior)
+  micAffectsGlobal: boolean;
+  // Mic → Randomish amount additive modulation (0..1)
+  randomishMicModAmount: number;
+  // Deprecated in v23: sine LFO controls
+  sineLfoModAmount: number;
+  sineLfoModSpeed: number;
+}
+
+type ConfigV23 = Omit<ConfigV22, 'version' | 'sineLfoModAmount' | 'sineLfoModSpeed'> & {
+  version: 23;
+  // Mic modulation per-noise amounts
+  sineMicModAmount: number; // 0..1
+  rippleMicModAmount: number; // 0..1
+  surfaceRippleMicModAmount: number; // 0..1
+}
 // Current configuration interface
-export interface Config extends ConfigV21 {
-  version: 21;
+export interface Config extends ConfigV23 {
+  version: 23;
 }
 
 // Default configuration
 export const defaultConfig: Config = {
-  version: 21,
+  version: 23,
   // Global controls
   vertexCount: 400,
   pointSize: 0.04,
@@ -227,6 +247,7 @@ export const defaultConfig: Config = {
   micVolume: 1.0,
   micEnabled: false,
   micSmoothing: 0.8,
+  micAffectsGlobal: true,
   
   // Ripple noise (surface XY)
   enableRippleNoise: false,
@@ -255,6 +276,11 @@ export const defaultConfig: Config = {
   // Debug controls
   freezeTime: false,
   advanceCount: 0,
+  // Modulation defaults (non-invasive)
+  randomishMicModAmount: 0.0,
+  sineMicModAmount: 0.0,
+  rippleMicModAmount: 0.0,
+  surfaceRippleMicModAmount: 0.0,
 };
 
 // Migration functions
@@ -267,7 +293,7 @@ function migrateV1ToV2(config: ConfigV1): ConfigV2 {
   };
 }
 
-function migrateConfig(config: any): ConfigV14 | ConfigV15 | ConfigV16 | ConfigV17 | ConfigV18 | ConfigV19 | ConfigV20 | ConfigV21 {
+function migrateConfig(config: any): ConfigV14 | ConfigV15 | ConfigV16 | ConfigV17 | ConfigV18 | ConfigV19 | ConfigV20 | ConfigV21 | ConfigV22 | ConfigV23 {
   if (!config || typeof config !== 'object') {
     return defaultConfig;
   }
@@ -456,7 +482,11 @@ function migrateConfig(config: any): ConfigV14 | ConfigV15 | ConfigV16 | ConfigV
     case 20:
       return migrateV20ToV21(config as ConfigV20);
     case 21:
-      return config as ConfigV21;
+      return migrateV21ToV22(config as ConfigV21);
+    case 22:
+      return migrateV22ToV23(config as ConfigV22);
+    case 23:
+      return config as ConfigV23;
     default:
       console.warn(`Unknown config version ${version}, using defaults`);
       return defaultConfig;
@@ -650,6 +680,28 @@ function migrateV20ToV21(config: ConfigV20): ConfigV21 {
   } as unknown as ConfigV21;
 }
 
+function migrateV21ToV22(config: ConfigV21): ConfigV22 {
+  return {
+    ...config,
+    version: 22,
+    micAffectsGlobal: true,
+    randomishMicModAmount: 0.0,
+    sineLfoModAmount: 0.0,
+    sineLfoModSpeed: 1.0,
+  } as unknown as ConfigV22;
+}
+
+function migrateV22ToV23(config: ConfigV22): ConfigV23 {
+  const { sineLfoModAmount: _drop1, sineLfoModSpeed: _drop2, ...rest } = config as any;
+  return {
+    ...rest,
+    version: 23,
+    sineMicModAmount: 0.0,
+    rippleMicModAmount: 0.0,
+    surfaceRippleMicModAmount: 0.0,
+  } as unknown as ConfigV23;
+}
+
 function migrateToLatest(config: any): Config {
   const migrated = migrateConfig(config);
   if (!migrated || typeof migrated !== 'object') {
@@ -684,7 +736,14 @@ function migrateToLatest(config: any): Config {
     return migrateV20ToV21(migrated as ConfigV20) as unknown as Config;
   }
   if ((migrated as ConfigV21).version === 21) {
-    return migrated as Config;
+    return migrateV21ToV22(migrated as ConfigV21) as unknown as Config;
+  }
+  if ((migrated as ConfigV22).version === 22) {
+    return migrateV22ToV23(migrated as ConfigV22) as unknown as Config;
+  }
+  if ((migrated as ConfigV23).version === 23) {
+    // Ensure any missing keys introduced in this version receive defaults
+    return { ...defaultConfig, ...(migrated as ConfigV23) } as Config;
   }
   // Fallback safety
   return defaultConfig;

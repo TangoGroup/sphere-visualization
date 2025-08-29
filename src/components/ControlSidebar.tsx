@@ -272,6 +272,18 @@ export function ControlSidebar() {
             </div>
           )}
           {config.micEnabled && (
+            <div className="mt-2">
+              <div className="flex items-center space-x-2">
+                <Checkbox
+                  id="mic-affects-global"
+                  checked={config.micAffectsGlobal}
+                  onCheckedChange={(checked) => setConfig({ micAffectsGlobal: checked as boolean })}
+                />
+                <label htmlFor="mic-affects-global" className="text-sm font-medium">Mic multiplies Effect Power</label>
+              </div>
+            </div>
+          )}
+          {config.micEnabled && (
             <div>
               <label className="block text-sm font-medium mb-2">Mic Smoothing</label>
               <Slider
@@ -595,7 +607,7 @@ export function ControlSidebar() {
               <Slider
                 value={[config.randomishSpeed]}
                 onValueChange={([value]) => setConfig({ randomishSpeed: value })}
-                min={0.1}
+                min={0}
                 max={10.0}
                 step={0.1}
                 className="w-full"
@@ -607,6 +619,20 @@ export function ControlSidebar() {
                 </Button>
               </div>
             </div>
+            {config.micEnabled && (
+              <div className="mt-2">
+                <label className="block text-sm font-medium mb-2">Mic → Randomish Amount</label>
+                <Slider
+                  value={[config.randomishMicModAmount ?? 0]}
+                  onValueChange={([value]) => setConfig({ randomishMicModAmount: value ?? 0 })}
+                  min={0}
+                  max={1}
+                  step={0.01}
+                  className="w-full"
+                />
+                <div className="text-right text-sm text-gray-400 mt-1">{(config.randomishMicModAmount ?? 0).toFixed(2)}</div>
+              </div>
+            )}
           </SidebarGroupContent>
         </SidebarGroup>
 
@@ -646,7 +672,7 @@ export function ControlSidebar() {
               <Slider
                 value={[config.sineSpeed]}
                 onValueChange={([value]) => setConfig({ sineSpeed: value })}
-                min={0.1}
+                min={0}
                 max={10.0}
                 step={0.1}
                 className="w-full"
@@ -675,6 +701,20 @@ export function ControlSidebar() {
                 </Button>
               </div>
             </div>
+            {config.micEnabled && (
+              <div className="mt-2">
+                <label className="block text-sm font-medium mb-2">Mic → Sine Amount</label>
+                <Slider
+                  value={[config.sineMicModAmount ?? 0]}
+                  onValueChange={([value]) => setConfig({ sineMicModAmount: value ?? 0 })}
+                  min={0}
+                  max={1}
+                  step={0.01}
+                  className="w-full"
+                />
+                <div className="text-right text-sm text-gray-400 mt-1">{(config.sineMicModAmount ?? 0).toFixed(2)}</div>
+              </div>
+            )}
           </SidebarGroupContent>
         </SidebarGroup>
 
@@ -714,7 +754,7 @@ export function ControlSidebar() {
               <Slider
                 value={[config.rippleSpeed]}
                 onValueChange={([value]) => setConfig({ rippleSpeed: value })}
-                min={0.1}
+                min={0}
                 max={10.0}
                 step={0.1}
                 className="w-full"
@@ -743,6 +783,20 @@ export function ControlSidebar() {
                 </Button>
               </div>
             </div>
+            {config.micEnabled && (
+              <div className="mt-2">
+                <label className="block text-sm font-medium mb-2">Mic → Ripple Amount</label>
+                <Slider
+                  value={[config.rippleMicModAmount ?? 0]}
+                  onValueChange={([value]) => setConfig({ rippleMicModAmount: value ?? 0 })}
+                  min={0}
+                  max={1}
+                  step={0.01}
+                  className="w-full"
+                />
+                <div className="text-right text-sm text-gray-400 mt-1">{(config.rippleMicModAmount ?? 0).toFixed(2)}</div>
+              </div>
+            )}
           </SidebarGroupContent>
         </SidebarGroup>
 
@@ -783,7 +837,7 @@ export function ControlSidebar() {
               <Slider
                 value={[config.surfaceRippleSpeed]}
                 onValueChange={([value]) => setConfig({ surfaceRippleSpeed: value })}
-                min={0.1}
+                min={0}
                 max={10.0}
                 step={0.1}
                 className="w-full"
@@ -812,6 +866,20 @@ export function ControlSidebar() {
                 </Button>
               </div>
             </div>
+            {config.micEnabled && (
+              <div className="mt-2">
+                <label className="block text-sm font-medium mb-2">Mic → Surface Ripple Amount</label>
+                <Slider
+                  value={[config.surfaceRippleMicModAmount ?? 0]}
+                  onValueChange={([value]) => setConfig({ surfaceRippleMicModAmount: value ?? 0 })}
+                  min={0}
+                  max={1}
+                  step={0.01}
+                  className="w-full"
+                />
+                <div className="text-right text-sm text-gray-400 mt-1">{(config.surfaceRippleMicModAmount ?? 0).toFixed(2)}</div>
+              </div>
+            )}
           </SidebarGroupContent>
         </SidebarGroup>
 
