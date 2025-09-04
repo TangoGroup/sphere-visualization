@@ -59,6 +59,10 @@ export interface SphereWaveformProps {
   glowColor?: string; // hex for glow
   glowStrength?: number; // 0..3
   glowRadiusFactor?: number; // per-side halo thickness as multiple of core radius
+  // Gradient coloring
+  enableGradient?: boolean;
+  gradientColor2?: string;
+  gradientAngle?: number; // degrees 0..360
   // glowSoftness removed in v20
   // Point size randomness
   sizeRandomness?: number; // 0..1 mixes base size with random [0..2]
@@ -136,6 +140,10 @@ interface Uniforms {
   uColor: { value: THREE.Color };
   uGlowColor: { value: THREE.Color };
   uGlowStrength: { value: number };
+  // Gradient
+  uEnableGradient: { value: number };
+  uColor2: { value: THREE.Color };
+  uGradientAngle: { value: number };
   // Arcs
   uArcsActive: { value: number };
   uArcCenters: { value: Float32Array };
@@ -202,11 +210,15 @@ uniform float uSpinSpeed;
 // Spin axis uniforms
 uniform float uSpinAxisX;
 uniform float uSpinAxisY;
+// Gradient coloring
+uniform int uEnableGradient;
+uniform float uGradientAngle; // radians
 
 varying vec2 vNdc;
 varying float vArcBoost;
 varying float vSizeRand;
 varying float vCoreRadiusNorm;
+varying float vGradT;
 
 // Simple hash function for deterministic pseudo-random values
 float hash(float n) { return fract(sin(n) * 43758.5453); }
@@ -235,7 +247,8 @@ float smoothNoise(vec3 p) {
 }
 
 void main() {
-  vec3 base = normalize(position);
+  vec3 initialBase = normalize(position);
+  vec3 base = initialBase;
 
   // Spin rotates around custom axis when enabled
   if (uEnableSpin > 0) {
@@ -374,6 +387,16 @@ void main() {
   float expanded = basePx + 2.0 * haloPx;
   vCoreRadiusNorm = (expanded > 0.0) ? clamp(basePx / expanded, 0.0, 1.0) : 1.0;
   gl_PointSize = clamp(expanded, 0.0, 2048.0);
+  // Compute gradient mix factor from original static position so color is stable
+  if (uEnableGradient > 0) {
+    float ang = uGradientAngle; // radians
+    // 3D direction around Y axis (full great-circle variation)
+    vec3 dir3 = normalize(vec3(cos(ang), 0.0, sin(ang)));
+    float proj = dot(normalize(initialBase), dir3);
+    vGradT = clamp(proj * 0.5 + 0.5, 0.0, 1.0);
+  } else {
+    vGradT = 0.0;
+  }
 }
 `;
 
@@ -387,6 +410,8 @@ uniform float uMaskFeatherPx;
 uniform int uMaskInvert;
 uniform vec2 uMaskCenterNdc;
 uniform vec3 uColor;
+uniform vec3 uColor2;
+uniform int uEnableGradient;
 uniform float uOpacity;
 uniform vec3 uGlowColor;
 uniform float uGlowStrength;
@@ -394,6 +419,7 @@ varying vec2 vNdc;
 varying float vArcBoost;
 varying float vSizeRand;
 varying float vCoreRadiusNorm;
+varying float vGradT;
 void main() {
   vec2 uv = gl_PointCoord * 2.0 - 1.0;
   float r2 = dot(uv, uv);
@@ -419,7 +445,8 @@ void main() {
   float end = mix(inner, 1.0, 0.3);
   float ring = 1.0 - smoothstep(inner, end, r);
   float emission = ring * clamp(uGlowStrength, 0.0, 3.0);
-  vec3 color = (uColor + uGlowColor * emission * 0.4) * screenMask;
+  vec3 baseColor = (uEnableGradient > 0) ? mix(uColor, uColor2, clamp(vGradT, 0.0, 1.0)) : uColor;
+  vec3 color = (baseColor + uGlowColor * emission * 0.4) * screenMask;
   float outAlpha = alpha;
   gl_FragColor = vec4(color, outAlpha);
 }
@@ -482,6 +509,9 @@ export function SphereWaveform({
   glowColor = '#ffffff',
   glowStrength = 0.0,
   glowRadiusFactor = 0,
+  enableGradient = false,
+  gradientColor2 = '#ffffff',
+  gradientAngle = 0,
   // softness removed
   sizeRandomness = 0.0,
   enableArcs = false,
@@ -562,6 +592,9 @@ export function SphereWaveform({
         uSineSpeed: { value: sineSpeed },
         uSineScale: { value: sineScale },
         uColor: { value: new THREE.Color(pointColor) },
+        uColor2: { value: new THREE.Color(gradientColor2) },
+        uEnableGradient: { value: enableGradient ? 1 : 0 },
+        uGradientAngle: { value: 0 },
         uGlowColor: { value: new THREE.Color(glowColor) },
         uGlowStrength: { value: glowStrength },
         uGlowRadiusFactor: { value: glowRadiusFactor },
@@ -746,6 +779,9 @@ export function SphereWaveform({
       u.uSineScale.value = sineScale;
       // Color
       u.uColor.value.set(pointColor);
+      u.uColor2.value.set(gradientColor2);
+      u.uEnableGradient.value = enableGradient ? 1 : 0;
+      u.uGradientAngle.value = THREE.MathUtils.degToRad(gradientAngle);
       u.uGlowColor.value.set(glowColor);
       u.uGlowStrength.value = THREE.MathUtils.clamp(glowStrength, 0, 3);
       u.uGlowRadiusFactor.value = Math.max(0, glowRadiusFactor);

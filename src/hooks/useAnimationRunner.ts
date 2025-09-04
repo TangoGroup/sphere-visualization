@@ -70,7 +70,7 @@ export function useAnimationRunner() {
       if (typeof target === 'number' && typeof current === 'number') {
         (from as any)[key] = current;
         (to as any)[key] = target;
-      } else if (key === 'pointColor' && typeof target === 'string' && typeof current === 'string') {
+      } else if ((key === 'pointColor' || key === 'gradientColor2') && typeof target === 'string' && typeof current === 'string') {
         try {
           colorPairs[key] = { from: new THREE.Color(current), to: new THREE.Color(target) };
         } catch {

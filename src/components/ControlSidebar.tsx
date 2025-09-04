@@ -485,6 +485,47 @@ export function ControlSidebar() {
                 <Diamond className="text-orange-400" />
               </Button>
             </div>
+            <div className="mt-3 flex items-center space-x-2">
+              <Checkbox
+                id="enable-gradient"
+                checked={config.enableGradient}
+                onCheckedChange={(checked) => setConfig({ enableGradient: checked as boolean })}
+              />
+              <label htmlFor="enable-gradient" className="text-sm font-medium">Gradient</label>
+            </div>
+            {config.enableGradient && (
+              <>
+                <div className="mt-2">
+                  <BrandColorPicker
+                    value={config.gradientColor2}
+                    onChange={(hex) => setConfig({ gradientColor2: hex })}
+                    label="2nd Color"
+                  />
+                  <div className="flex items-center justify-end mt-2">
+                    <Button size="icon" variant="outline" disabled={!draft} onClick={() => { addOrUpdateDraftProp('gradientColor2', config.gradientColor2); }} title="Add 2nd color to active animation">
+                      <Diamond className="text-orange-400" />
+                    </Button>
+                  </div>
+                </div>
+                <div className="mt-2">
+                  <label className="block text-sm font-medium mb-2">Gradient Angle</label>
+                  <Slider
+                    value={[config.gradientAngle]}
+                    onValueChange={([value]) => setConfig({ gradientAngle: value })}
+                    min={0}
+                    max={360}
+                    step={1}
+                    className="w-full"
+                  />
+                  <div className="flex items-center justify-between mt-1">
+                    <div className="text-sm text-gray-400">{Number.isFinite(config.gradientAngle) ? config.gradientAngle.toFixed(0) + '°' : '0°'}</div>
+                    <Button size="icon" variant="outline" disabled={!draft} onClick={() => { addOrUpdateDraftProp('gradientAngle', config.gradientAngle); }} title="Add gradient angle to active animation">
+                      <Diamond className="text-orange-400" />
+                    </Button>
+                  </div>
+                </div>
+              </>
+            )}
             <div className="mt-4">
               <label className="block text-sm font-medium mb-2">Glow Strength</label>
               <Slider

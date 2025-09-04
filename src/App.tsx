@@ -14,7 +14,7 @@ import { useAnimationStore } from '@/stores/animationStore';
 import { useMicAnalyzer } from '@/hooks/useMicAnalyzer';
 import { EffectComposer, Bloom } from '@react-three/postprocessing';
 
-function Scene({ volume, vertexCount, pointSize, shellCount, freezeTime, advanceCount, enableRandomishNoise, randomishAmount, enableSineNoise, sineAmount, pulseSize, enableSpin, spinSpeed, spinAxisX, spinAxisY, maskEnabled, maskRadius, maskFeather, maskInvert, sineSpeed, sineScale, randomishSpeed, pointColor, glowColor, glowStrength, glowRadiusFactor, sizeRandomness, backgroundTheme, enableRippleNoise, rippleAmount, rippleSpeed, rippleScale, enableSurfaceRipple, surfaceRippleAmount, surfaceRippleSpeed, surfaceRippleScale, enableArcs, arcMaxCount, arcSpawnRate, arcDuration, arcSpeed, arcSpanDeg, arcThickness, arcFeather, arcBrightness, arcAltitude, size, opacity, rotationX, rotationY, rotationZ, micEnvelope, randomishMicModAmount, sineMicModAmount, rippleMicModAmount, surfaceRippleMicModAmount }: { 
+function Scene({ volume, vertexCount, pointSize, shellCount, freezeTime, advanceCount, enableRandomishNoise, randomishAmount, enableSineNoise, sineAmount, pulseSize, enableSpin, spinSpeed, spinAxisX, spinAxisY, maskEnabled, maskRadius, maskFeather, maskInvert, sineSpeed, sineScale, randomishSpeed, pointColor, glowColor, glowStrength, glowRadiusFactor, sizeRandomness, backgroundTheme, enableRippleNoise, rippleAmount, rippleSpeed, rippleScale, enableSurfaceRipple, surfaceRippleAmount, surfaceRippleSpeed, surfaceRippleScale, enableArcs, arcMaxCount, arcSpawnRate, arcDuration, arcSpeed, arcSpanDeg, arcThickness, arcFeather, arcBrightness, arcAltitude, size, opacity, rotationX, rotationY, rotationZ, micEnvelope, randomishMicModAmount, sineMicModAmount, rippleMicModAmount, surfaceRippleMicModAmount, enableGradient, gradientColor2, gradientAngle }: { 
   volume: number; 
   vertexCount: number; 
   pointSize: number; 
@@ -71,12 +71,16 @@ function Scene({ volume, vertexCount, pointSize, shellCount, freezeTime, advance
   sineMicModAmount: number;
   rippleMicModAmount: number;
   surfaceRippleMicModAmount: number;
+  enableGradient: boolean;
+  gradientColor2: string;
+  gradientAngle: number;
 }) {
   const bg = useMemo(() => new THREE.Color(backgroundTheme === 'dark' ? '#0b0f13' : '#ffffff'), [backgroundTheme]);
   const blendingMode = backgroundTheme === 'light' ? 'normal' : 'additive' as const;
   const pc = (pointColor || '').trim().toLowerCase();
   const isWhite = pc === '#ffffff' || pc === '#fff';
-  const displayPointColor = backgroundTheme === 'light' && isWhite ? '#0b0f13' : pointColor;
+  // Only substitute on light bg when gradient is disabled, to respect white in gradients
+  const displayPointColor = backgroundTheme === 'light' && isWhite && !enableGradient ? '#0b0f13' : pointColor;
   return (
     <>
       <color attach="background" args={[bg]} />
@@ -111,6 +115,9 @@ function Scene({ volume, vertexCount, pointSize, shellCount, freezeTime, advance
           sineSpeed={sineSpeed}
           sineScale={sineScale}
           pointColor={displayPointColor}
+          enableGradient={enableGradient}
+          gradientColor2={gradientColor2}
+          gradientAngle={gradientAngle}
           glowColor={glowColor}
           glowStrength={glowStrength}
           glowRadiusFactor={glowRadiusFactor}
@@ -166,7 +173,9 @@ function App() {
   // Apply additional UI smoothing as EMA on top of analyzer's base smoothing
   const micSmoothed = mic.volume; // analyzer already applies baseline smoothing
   const micEnvelope = config.micEnabled ? Math.min(1, config.micVolume * micSmoothed) : 0;
-  const globalMicFactor = config.micAffectsGlobal ? Math.min(11, config.micVolume * micSmoothed) : 1;
+  const globalMicFactor = config.micEnabled && config.micAffectsGlobal
+    ? Math.min(11, config.micVolume * micSmoothed)
+    : 1;
   const effectiveVolume = Math.min(1, globalMicFactor * config.volume);
 
   return (
@@ -182,6 +191,9 @@ function App() {
               sineMicModAmount={config.sineMicModAmount}
               rippleMicModAmount={config.rippleMicModAmount}
               surfaceRippleMicModAmount={config.surfaceRippleMicModAmount}
+              enableGradient={config.enableGradient}
+              gradientColor2={config.gradientColor2}
+              gradientAngle={config.gradientAngle}
               vertexCount={config.vertexCount}
               pointSize={config.pointSize}
               shellCount={config.shellCount}

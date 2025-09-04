@@ -189,14 +189,22 @@ type ConfigV23 = Omit<ConfigV22, 'version' | 'sineLfoModAmount' | 'sineLfoModSpe
   rippleMicModAmount: number; // 0..1
   surfaceRippleMicModAmount: number; // 0..1
 }
+
+type ConfigV24 = Omit<ConfigV23, 'version'> & {
+  version: 24;
+  // Gradient coloring across dots
+  enableGradient: boolean;
+  gradientColor2: string; // hex color, used when gradient enabled
+  gradientAngle: number; // degrees 0..360, direction in XY plane
+}
 // Current configuration interface
-export interface Config extends ConfigV23 {
-  version: 23;
+export interface Config extends ConfigV24 {
+  version: 24;
 }
 
 // Default configuration
 export const defaultConfig: Config = {
-  version: 23,
+  version: 24,
   // Global controls
   vertexCount: 400,
   pointSize: 0.04,
@@ -242,6 +250,10 @@ export const defaultConfig: Config = {
   backgroundTheme: 'dark',
   sizeRandomness: 0.0,
   glowStrength: 0.0,
+  // Gradient (disabled by default; non-invasive)
+  enableGradient: false,
+  gradientColor2: '#ffffff',
+  gradientAngle: 0,
   
   // Microphone
   micVolume: 1.0,
@@ -293,7 +305,7 @@ function migrateV1ToV2(config: ConfigV1): ConfigV2 {
   };
 }
 
-function migrateConfig(config: any): ConfigV14 | ConfigV15 | ConfigV16 | ConfigV17 | ConfigV18 | ConfigV19 | ConfigV20 | ConfigV21 | ConfigV22 | ConfigV23 {
+function migrateConfig(config: any): ConfigV14 | ConfigV15 | ConfigV16 | ConfigV17 | ConfigV18 | ConfigV19 | ConfigV20 | ConfigV21 | ConfigV22 | ConfigV23 | ConfigV24 {
   if (!config || typeof config !== 'object') {
     return defaultConfig;
   }
@@ -486,7 +498,9 @@ function migrateConfig(config: any): ConfigV14 | ConfigV15 | ConfigV16 | ConfigV
     case 22:
       return migrateV22ToV23(config as ConfigV22);
     case 23:
-      return config as ConfigV23;
+      return migrateV23ToV24(config as ConfigV23);
+    case 24:
+      return config as ConfigV24;
     default:
       console.warn(`Unknown config version ${version}, using defaults`);
       return defaultConfig;
@@ -702,6 +716,16 @@ function migrateV22ToV23(config: ConfigV22): ConfigV23 {
   } as unknown as ConfigV23;
 }
 
+function migrateV23ToV24(config: ConfigV23): ConfigV24 {
+  return {
+    ...config,
+    version: 24,
+    enableGradient: false,
+    gradientColor2: (config as any).pointColor ?? '#ffffff',
+    gradientAngle: 0,
+  } as unknown as ConfigV24;
+}
+
 function migrateToLatest(config: any): Config {
   const migrated = migrateConfig(config);
   if (!migrated || typeof migrated !== 'object') {
@@ -742,8 +766,12 @@ function migrateToLatest(config: any): Config {
     return migrateV22ToV23(migrated as ConfigV22) as unknown as Config;
   }
   if ((migrated as ConfigV23).version === 23) {
+    const v24 = migrateV23ToV24(migrated as ConfigV23);
+    return { ...defaultConfig, ...(v24 as ConfigV24) } as Config;
+  }
+  if ((migrated as ConfigV24).version === 24) {
     // Ensure any missing keys introduced in this version receive defaults
-    return { ...defaultConfig, ...(migrated as ConfigV23) } as Config;
+    return { ...defaultConfig, ...(migrated as ConfigV24) } as Config;
   }
   // Fallback safety
   return defaultConfig;

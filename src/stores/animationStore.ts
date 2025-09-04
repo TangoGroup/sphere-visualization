@@ -72,6 +72,8 @@ function buildDefaultsTarget(): Partial<Config> {
     pointSize: defaultConfig.pointSize,
     vertexCount: defaultConfig.vertexCount,
     pointColor: defaultConfig.pointColor,
+    gradientColor2: defaultConfig.gradientColor2,
+    gradientAngle: defaultConfig.gradientAngle,
     volume: defaultConfig.volume,
     // noise
     randomishAmount: defaultConfig.randomishAmount,
