@@ -1,4 +1,4 @@
-import { useMemo, useRef } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import * as THREE from 'three';
 import { useFrame } from '@react-three/fiber';
 import { generateFibonacciSpherePoints } from '../utils/fibonacciSphere';
@@ -85,6 +85,8 @@ export interface SphereWaveformProps {
   sineMicModAmount?: number; // 0..1
   rippleMicModAmount?: number; // 0..1
   surfaceRippleMicModAmount?: number; // 0..1
+  // Auto-transition of animatable props
+  transition?: TransitionOptions;
 }
 
 interface Uniforms {
@@ -466,6 +468,45 @@ type Arc = {
   brightness: number;
 };
 
+type AnimEase =
+  | 'linear'
+  | 'power1.inOut'
+  | 'power2.inOut'
+  | 'power3.inOut'
+  | 'sine.inOut'
+  | 'expo.inOut';
+
+export interface TransitionOptions {
+  enabled?: boolean;
+  mode?: 'lerp';
+  duration?: number; // seconds
+  ease?: AnimEase;
+  onStart?: () => void;
+  onComplete?: () => void;
+}
+
+function getEaser(name: AnimEase | undefined) {
+  switch (name) {
+    case 'linear':
+      return (t: number) => t;
+    case 'power1.inOut':
+      return (t: number) => (t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2);
+    case 'power2.inOut':
+      return (t: number) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
+    case 'power3.inOut':
+      return (t: number) => (t < 0.5 ? 8 * t * t * t * t : 1 - Math.pow(-2 * t + 2, 4) / 2);
+    case 'sine.inOut':
+      return (t: number) => -(Math.cos(Math.PI * t) - 1) / 2;
+    case 'expo.inOut':
+      return (t: number) => {
+        if (t === 0 || t === 1) return t;
+        return t < 0.5 ? Math.pow(2, 20 * t - 10) / 2 : (2 - Math.pow(2, -20 * t + 10)) / 2;
+      };
+    default:
+      return (t: number) => t;
+  }
+}
+
 export function SphereWaveform({
   vertexCount = 400,
   volume,
@@ -531,12 +572,172 @@ export function SphereWaveform({
   sineMicModAmount = 0,
   rippleMicModAmount = 0,
   surfaceRippleMicModAmount = 0,
+  transition,
 }: SphereWaveformProps) {
+  const groupRef = useRef<THREE.Group | null>(null);
   const uniformsRef = useRef<Uniforms[] | null>(null);
   const prevNowRef = useRef<number | null>(null);
   const timeAccRef = useRef<number>(0);
   const lastAdvanceRef = useRef<number>(advanceCount);
   const arcsRef = useRef<Arc[]>([]);
+
+  // Auto-transition state
+  type NumericKey =
+    | 'radius' | 'pointSize' | 'size' | 'opacity'
+    | 'rotationX' | 'rotationY' | 'rotationZ'
+    | 'randomishAmount' | 'randomishSpeed' | 'pulseSize'
+    | 'sineAmount' | 'sineSpeed' | 'sineScale'
+    | 'rippleAmount' | 'rippleSpeed' | 'rippleScale'
+    | 'surfaceRippleAmount' | 'surfaceRippleSpeed' | 'surfaceRippleScale'
+    | 'spinSpeed' | 'spinAxisX' | 'spinAxisY'
+    | 'maskRadius' | 'maskFeather'
+    | 'gradientAngle' | 'sizeRandomness'
+    | 'glowStrength' | 'glowRadiusFactor'
+    | 'arcSpawnRate' | 'arcDuration' | 'arcSpeed' | 'arcSpanDeg' | 'arcThickness' | 'arcFeather' | 'arcBrightness' | 'arcAltitude';
+
+  type ColorKey = 'pointColor' | 'gradientColor2' | 'glowColor';
+
+  const numericKeys: NumericKey[] = [
+    'radius','pointSize','size','opacity',
+    'rotationX','rotationY','rotationZ',
+    'randomishAmount','randomishSpeed','pulseSize',
+    'sineAmount','sineSpeed','sineScale',
+    'rippleAmount','rippleSpeed','rippleScale',
+    'surfaceRippleAmount','surfaceRippleSpeed','surfaceRippleScale',
+    'spinSpeed','spinAxisX','spinAxisY',
+    'maskRadius','maskFeather',
+    'gradientAngle','sizeRandomness',
+    'glowStrength','glowRadiusFactor',
+    'arcSpawnRate','arcDuration','arcSpeed','arcSpanDeg','arcThickness','arcFeather','arcBrightness','arcAltitude',
+  ];
+  const colorKeys: ColorKey[] = ['pointColor','gradientColor2','glowColor'];
+
+  const currentNumericRef = useRef<Record<NumericKey, number> | null>(null);
+  const startNumericRef = useRef<Record<NumericKey, number> | null>(null);
+  const targetNumericRef = useRef<Record<NumericKey, number> | null>(null);
+
+  const currentColorRef = useRef<Record<ColorKey, THREE.Color> | null>(null);
+  const startColorRef = useRef<Record<ColorKey, THREE.Color> | null>(null);
+  const targetColorRef = useRef<Record<ColorKey, THREE.Color> | null>(null);
+
+  const animActiveRef = useRef<boolean>(false);
+  const animElapsedRef = useRef<number>(0);
+  const animDurationRef = useRef<number>(0.6);
+  const animEaseRef = useRef<(t: number) => number>((t: number) => t);
+  const onStartRef = useRef<(() => void) | undefined>(undefined);
+  const onCompleteRef = useRef<(() => void) | undefined>(undefined);
+
+  // Initialize/handle prop changes → targets and (optionally) start tween
+  useEffect(() => {
+    const enabled = Boolean(transition?.enabled);
+    const duration = (transition?.duration ?? 0.6);
+    const ease = getEaser(transition?.ease ?? 'power2.inOut');
+    onStartRef.current = transition?.onStart;
+    onCompleteRef.current = transition?.onComplete;
+    animDurationRef.current = Math.max(0, duration);
+    animEaseRef.current = ease;
+
+    const nextNumeric = {
+      radius, pointSize, size, opacity,
+      rotationX, rotationY, rotationZ,
+      randomishAmount, randomishSpeed, pulseSize,
+      sineAmount, sineSpeed, sineScale,
+      rippleAmount, rippleSpeed, rippleScale,
+      surfaceRippleAmount, surfaceRippleSpeed, surfaceRippleScale,
+      spinSpeed, spinAxisX, spinAxisY,
+      maskRadius, maskFeather,
+      gradientAngle, sizeRandomness,
+      glowStrength, glowRadiusFactor,
+      arcSpawnRate, arcDuration, arcSpeed, arcSpanDeg, arcThickness, arcFeather, arcBrightness, arcAltitude,
+    } as Record<NumericKey, number>;
+
+    const nextColors: Record<ColorKey, THREE.Color> = {
+      pointColor: new THREE.Color(pointColor),
+      gradientColor2: new THREE.Color(gradientColor2),
+      glowColor: new THREE.Color(glowColor),
+    };
+
+    if (!currentNumericRef.current || !currentColorRef.current) {
+      currentNumericRef.current = { ...nextNumeric };
+      currentColorRef.current = {
+        pointColor: nextColors.pointColor.clone(),
+        gradientColor2: nextColors.gradientColor2.clone(),
+        glowColor: nextColors.glowColor.clone(),
+      };
+      startNumericRef.current = { ...nextNumeric };
+      targetNumericRef.current = { ...nextNumeric };
+      startColorRef.current = {
+        pointColor: nextColors.pointColor.clone(),
+        gradientColor2: nextColors.gradientColor2.clone(),
+        glowColor: nextColors.glowColor.clone(),
+      };
+      targetColorRef.current = {
+        pointColor: nextColors.pointColor.clone(),
+        gradientColor2: nextColors.gradientColor2.clone(),
+        glowColor: nextColors.glowColor.clone(),
+      };
+      animActiveRef.current = false;
+      animElapsedRef.current = 0;
+      return;
+    }
+
+    // Detect any change
+    let changed = false;
+    for (const k of numericKeys) {
+      if (Math.abs(nextNumeric[k] - (targetNumericRef.current![k] ?? nextNumeric[k])) > 1e-9) { changed = true; break; }
+    }
+    if (!changed) {
+      for (const k of colorKeys) {
+        const a = nextColors[k];
+        const b = targetColorRef.current![k];
+        if (!a.equals(b)) { changed = true; break; }
+      }
+    }
+
+    if (!changed) return;
+
+    if (!enabled || animDurationRef.current === 0) {
+      currentNumericRef.current = { ...nextNumeric };
+      targetNumericRef.current = { ...nextNumeric };
+      currentColorRef.current!.pointColor.copy(nextColors.pointColor);
+      currentColorRef.current!.gradientColor2.copy(nextColors.gradientColor2);
+      currentColorRef.current!.glowColor.copy(nextColors.glowColor);
+      targetColorRef.current!.pointColor.copy(nextColors.pointColor);
+      targetColorRef.current!.gradientColor2.copy(nextColors.gradientColor2);
+      targetColorRef.current!.glowColor.copy(nextColors.glowColor);
+      animActiveRef.current = false;
+      animElapsedRef.current = 0;
+      return;
+    }
+
+    // Start/restart tween from current → next
+    startNumericRef.current = { ...currentNumericRef.current };
+    targetNumericRef.current = { ...nextNumeric };
+    startColorRef.current!.pointColor.copy(currentColorRef.current!.pointColor);
+    startColorRef.current!.gradientColor2.copy(currentColorRef.current!.gradientColor2);
+    startColorRef.current!.glowColor.copy(currentColorRef.current!.glowColor);
+    targetColorRef.current!.pointColor.copy(nextColors.pointColor);
+    targetColorRef.current!.gradientColor2.copy(nextColors.gradientColor2);
+    targetColorRef.current!.glowColor.copy(nextColors.glowColor);
+    animElapsedRef.current = 0;
+    animActiveRef.current = true;
+    try { onStartRef.current && onStartRef.current(); } catch {}
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    transition?.enabled, transition?.duration, transition?.ease,
+    radius, pointSize, size, opacity,
+    rotationX, rotationY, rotationZ,
+    randomishAmount, randomishSpeed, pulseSize,
+    sineAmount, sineSpeed, sineScale,
+    rippleAmount, rippleSpeed, rippleScale,
+    surfaceRippleAmount, surfaceRippleSpeed, surfaceRippleScale,
+    spinSpeed, spinAxisX, spinAxisY,
+    maskRadius, maskFeather,
+    gradientAngle, sizeRandomness,
+    glowStrength, glowRadiusFactor,
+    arcSpawnRate, arcDuration, arcSpeed, arcSpanDeg, arcThickness, arcFeather, arcBrightness, arcAltitude,
+    pointColor, gradientColor2, glowColor,
+  ]);
 
   const { positions, seeds } = useMemo(
     () => generateFibonacciSpherePoints(vertexCount, radius, seed),
@@ -711,11 +912,70 @@ export function SphereWaveform({
       bright[i] = a.brightness;
     }
 
+    // Advance auto-transition
+    if (animActiveRef.current && currentNumericRef.current && startNumericRef.current && targetNumericRef.current && currentColorRef.current && startColorRef.current && targetColorRef.current) {
+      animElapsedRef.current += dt;
+      const t = Math.min(1, animDurationRef.current > 0 ? animElapsedRef.current / animDurationRef.current : 1);
+      const te = animEaseRef.current(t);
+      for (const k of numericKeys) {
+        const a = startNumericRef.current[k];
+        const b = targetNumericRef.current[k];
+        currentNumericRef.current[k] = a + (b - a) * te;
+      }
+      currentColorRef.current.pointColor.copy(startColorRef.current.pointColor).lerp(targetColorRef.current.pointColor, te);
+      currentColorRef.current.gradientColor2.copy(startColorRef.current.gradientColor2).lerp(targetColorRef.current.gradientColor2, te);
+      currentColorRef.current.glowColor.copy(startColorRef.current.glowColor).lerp(targetColorRef.current.glowColor, te);
+      if (t >= 1) { animActiveRef.current = false; try { onCompleteRef.current && onCompleteRef.current(); } catch {} }
+    }
+
+    const anim = currentNumericRef.current;
+    const animColors = currentColorRef.current;
+    const radiusV = anim?.radius ?? radius;
+    const pointSizeV = anim?.pointSize ?? pointSize;
+    const sizeV = anim?.size ?? size;
+    const opacityV = anim?.opacity ?? opacity;
+    const rotationXV = anim?.rotationX ?? rotationX;
+    const rotationYV = anim?.rotationY ?? rotationY;
+    const rotationZV = anim?.rotationZ ?? rotationZ;
+    const randomishAmountV = anim?.randomishAmount ?? randomishAmount;
+    const randomishSpeedV = anim?.randomishSpeed ?? randomishSpeed;
+    const pulseSizeV = anim?.pulseSize ?? pulseSize;
+    const sineAmountV = anim?.sineAmount ?? sineAmount;
+    const sineSpeedV = anim?.sineSpeed ?? sineSpeed;
+    const sineScaleV = anim?.sineScale ?? sineScale;
+    const rippleAmountV = anim?.rippleAmount ?? rippleAmount;
+    const rippleSpeedV = anim?.rippleSpeed ?? rippleSpeed;
+    const rippleScaleV = anim?.rippleScale ?? rippleScale;
+    const surfaceRippleAmountV = anim?.surfaceRippleAmount ?? surfaceRippleAmount;
+    const surfaceRippleSpeedV = anim?.surfaceRippleSpeed ?? surfaceRippleSpeed;
+    const surfaceRippleScaleV = anim?.surfaceRippleScale ?? surfaceRippleScale;
+    const spinSpeedV = anim?.spinSpeed ?? spinSpeed;
+    const spinAxisXV = anim?.spinAxisX ?? spinAxisX;
+    const spinAxisYV = anim?.spinAxisY ?? spinAxisY;
+    const maskRadiusV = anim?.maskRadius ?? maskRadius;
+    const maskFeatherV = anim?.maskFeather ?? maskFeather;
+    const gradientAngleV = anim?.gradientAngle ?? gradientAngle;
+    const sizeRandomnessV = anim?.sizeRandomness ?? sizeRandomness;
+    const glowStrengthV = anim?.glowStrength ?? glowStrength;
+    const glowRadiusFactorV = anim?.glowRadiusFactor ?? glowRadiusFactor;
+    // Arc timeline params remain driven by internal stateful spawner; anim override not applied here.
+    const arcAltitudeV = anim?.arcAltitude ?? arcAltitude;
+
+    // Update group transform directly to avoid re-renders
+    if (groupRef.current) {
+      groupRef.current.scale.set(sizeV, sizeV, sizeV);
+      groupRef.current.rotation.set(
+        THREE.MathUtils.degToRad(rotationXV),
+        THREE.MathUtils.degToRad(rotationYV),
+        THREE.MathUtils.degToRad(rotationZV)
+      );
+    }
+
     for (let i = 0; i < uniformsArray.length; i++) {
       const u = uniformsArray[i];
       u.uTime.value = timeAccRef.current;
-      u.uRadius.value = radius * (1 + i * 0.2);
-      u.uPointSize.value = pointSize;
+      u.uRadius.value = radiusV * (1 + i * 0.2);
+      u.uPointSize.value = pointSizeV;
       u.uViewportWidth.value = stateFrame.size.width;
       u.uViewportHeight.value = stateFrame.size.height;
       const cam = stateFrame.camera as THREE.PerspectiveCamera;
@@ -726,44 +986,44 @@ export function SphereWaveform({
       u.uEnableRandomish.value = enableRandomishNoise ? 1 : 0;
       const micEnv = THREE.MathUtils.clamp(micEnvelope, 0, 1);
       const randomishAmountFinal = THREE.MathUtils.clamp(
-        (randomishAmount ?? 0) + micEnv * THREE.MathUtils.clamp(randomishMicModAmount ?? 0, 0, 1),
+        (randomishAmountV ?? 0) + micEnv * THREE.MathUtils.clamp(randomishMicModAmount ?? 0, 0, 1),
         0,
         1
       );
       u.uRandomishAmount.value = randomishAmountFinal;
       u.uEnableSine.value = enableSineNoise ? 1 : 0;
       const sineAmountFinal = THREE.MathUtils.clamp(
-        (sineAmount ?? 0) + micEnv * THREE.MathUtils.clamp(sineMicModAmount ?? 0, 0, 1),
+        (sineAmountV ?? 0) + micEnv * THREE.MathUtils.clamp(sineMicModAmount ?? 0, 0, 1),
         0,
         1
       );
       u.uSineAmount.value = sineAmountFinal;
-      u.uRandomishSpeed.value = randomishSpeed;
-      u.uPulseSize.value = THREE.MathUtils.clamp(pulseSize, 0, 1);
-      u.uOpacity.value = THREE.MathUtils.clamp(opacity, 0, 1);
-      u.uSizeRandomness.value = THREE.MathUtils.clamp(sizeRandomness, 0, 1);
+      u.uRandomishSpeed.value = randomishSpeedV;
+      u.uPulseSize.value = THREE.MathUtils.clamp(pulseSizeV, 0, 1);
+      u.uOpacity.value = THREE.MathUtils.clamp(opacityV, 0, 1);
+      u.uSizeRandomness.value = THREE.MathUtils.clamp(sizeRandomnessV, 0, 1);
       // Ripple
       u.uEnableRipple.value = enableRippleNoise ? 1 : 0;
       u.uRippleAmount.value = THREE.MathUtils.clamp(
-        (rippleAmount ?? 0) + micEnv * THREE.MathUtils.clamp(rippleMicModAmount ?? 0, 0, 1),
+        (rippleAmountV ?? 0) + micEnv * THREE.MathUtils.clamp(rippleMicModAmount ?? 0, 0, 1),
         0,
         1
       );
-      u.uRippleSpeed.value = rippleSpeed;
-      u.uRippleScale.value = rippleScale;
+      u.uRippleSpeed.value = rippleSpeedV;
+      u.uRippleScale.value = rippleScaleV;
       // Surface ripple
       u.uEnableSurfaceRipple.value = enableSurfaceRipple ? 1 : 0;
       u.uSurfaceRippleAmount.value = THREE.MathUtils.clamp(
-        (surfaceRippleAmount ?? 0) + micEnv * THREE.MathUtils.clamp(surfaceRippleMicModAmount ?? 0, 0, 1),
+        (surfaceRippleAmountV ?? 0) + micEnv * THREE.MathUtils.clamp(surfaceRippleMicModAmount ?? 0, 0, 1),
         0,
         1
       );
-      u.uSurfaceRippleSpeed.value = surfaceRippleSpeed;
-      u.uSurfaceRippleScale.value = surfaceRippleScale;
+      u.uSurfaceRippleSpeed.value = surfaceRippleSpeedV;
+      u.uSurfaceRippleScale.value = surfaceRippleScaleV;
       u.uEnableSpin.value = enableSpin ? 1 : 0;
-      u.uSpinSpeed.value = spinSpeed;
-      u.uSpinAxisX.value = spinAxisX;
-      u.uSpinAxisY.value = spinAxisY;
+      u.uSpinSpeed.value = spinSpeedV;
+      u.uSpinAxisX.value = spinAxisXV;
+      u.uSpinAxisY.value = spinAxisYV;
       // Mask that follows sphere center in screen space, and scales with view
       u.uMaskEnabled.value = maskEnabled ? 1 : 0;
       u.uMaskInvert.value = maskInvert ? 1 : 0;
@@ -772,19 +1032,28 @@ export function SphereWaveform({
       u.uMaskCenterNdc.value.set(centerNdc.x, centerNdc.y);
       const minHalf = Math.min(stateFrame.size.width, stateFrame.size.height) * 0.5;
       // Map normalized maskRadius to pixels, adjusted by zoom (keeps scale roughly stable)
-      u.uMaskRadiusPx.value = THREE.MathUtils.clamp(maskRadius, 0, 1) * minHalf * (1.0 / Math.max(1e-3, cam.zoom));
-      u.uMaskFeatherPx.value = THREE.MathUtils.clamp(maskFeather, 0, 1) * minHalf * (1.0 / Math.max(1e-3, cam.zoom));
+      u.uMaskRadiusPx.value = THREE.MathUtils.clamp(maskRadiusV, 0, 1) * minHalf * (1.0 / Math.max(1e-3, cam.zoom));
+      u.uMaskFeatherPx.value = THREE.MathUtils.clamp(maskFeatherV, 0, 1) * minHalf * (1.0 / Math.max(1e-3, cam.zoom));
       // Sine noise
-      u.uSineSpeed.value = sineSpeed;
-      u.uSineScale.value = sineScale;
+      u.uSineSpeed.value = sineSpeedV;
+      u.uSineScale.value = sineScaleV;
       // Color
-      u.uColor.value.set(pointColor);
-      u.uColor2.value.set(gradientColor2);
+      if (animColors) {
+        u.uColor.value.copy(animColors.pointColor);
+        u.uColor2.value.copy(animColors.gradientColor2);
+      } else {
+        u.uColor.value.set(pointColor);
+        u.uColor2.value.set(gradientColor2);
+      }
       u.uEnableGradient.value = enableGradient ? 1 : 0;
-      u.uGradientAngle.value = THREE.MathUtils.degToRad(gradientAngle);
-      u.uGlowColor.value.set(glowColor);
-      u.uGlowStrength.value = THREE.MathUtils.clamp(glowStrength, 0, 3);
-      u.uGlowRadiusFactor.value = Math.max(0, glowRadiusFactor);
+      u.uGradientAngle.value = THREE.MathUtils.degToRad(gradientAngleV);
+      if (animColors) {
+        u.uGlowColor.value.copy(animColors.glowColor);
+      } else {
+        u.uGlowColor.value.set(glowColor);
+      }
+      u.uGlowStrength.value = THREE.MathUtils.clamp(glowStrengthV, 0, 3);
+      u.uGlowRadiusFactor.value = Math.max(0, glowRadiusFactorV);
       // Per-shell phase: deterministic from base seed and shell index
       const phaseBase = Math.sin((seed + i * 17.23) * 12.9898) * 43758.5453;
       const jitter = 1.0; // read directly from config in App if needed; default 1 here
@@ -800,16 +1069,12 @@ export function SphereWaveform({
       u.uArcThick.value.set(thick);
       u.uArcFeather.value.set(feath);
       u.uArcBright.value.set(bright);
-      u.uArcAltitude.value = arcAltitude;
+      u.uArcAltitude.value = arcAltitudeV;
     }
   });
 
-  const rotX = THREE.MathUtils.degToRad(rotationX);
-  const rotY = THREE.MathUtils.degToRad(rotationY);
-  const rotZ = THREE.MathUtils.degToRad(rotationZ);
-
   return (
-    <group scale={[size, size, size]} rotation={[rotX, rotY, rotZ]}>
+    <group ref={groupRef} scale={[size, size, size]} rotation={[THREE.MathUtils.degToRad(rotationX), THREE.MathUtils.degToRad(rotationY), THREE.MathUtils.degToRad(rotationZ)]}>
       {uniformsRef.current!.map((u, i) => (
         <group key={`shell-${i}`} renderOrder={i}>
         {/* Single pass again: core only; bloom will provide glow */}
