@@ -660,23 +660,9 @@ export function SphereWaveform({
   const lastAdvanceRef = useRef<number>(advanceCount);
   const arcsRef = useRef<Arc[]>([]);
 
-  // Auto-transition state
-  type NumericKey =
-    | 'radius' | 'pointSize' | 'size' | 'opacity'
-    | 'rotationX' | 'rotationY' | 'rotationZ'
-    | 'randomishAmount' | 'randomishSpeed' | 'pulseSize'
-    | 'sineAmount' | 'sineSpeed' | 'sineScale'
-    | 'rippleAmount' | 'rippleSpeed' | 'rippleScale'
-    | 'surfaceRippleAmount' | 'surfaceRippleSpeed' | 'surfaceRippleScale'
-    | 'spinSpeed' | 'spinAxisX' | 'spinAxisY'
-    | 'maskRadius' | 'maskFeather'
-    | 'gradientAngle' | 'sizeRandomness'
-    | 'glowStrength' | 'glowRadiusFactor'
-    | 'arcSpawnRate' | 'arcDuration' | 'arcSpeed' | 'arcSpanDeg' | 'arcThickness' | 'arcFeather' | 'arcBrightness' | 'arcAltitude';
-
-  type ColorKey = 'pointColor' | 'gradientColor2' | 'glowColor';
-
-  const numericKeys: NumericKey[] = [
+  // Auto-transition state - only animate props that are actually changing
+  type AnimatableKey = keyof SphereWaveformProps;
+  const animatableKeys: AnimatableKey[] = [
     'radius','pointSize','size','opacity',
     'rotationX','rotationY','rotationZ',
     'randomishAmount','randomishSpeed','pulseSize',
@@ -688,19 +674,15 @@ export function SphereWaveform({
     'gradientAngle','sizeRandomness',
     'glowStrength','glowRadiusFactor',
     'arcSpawnRate','arcDuration','arcSpeed','arcSpanDeg','arcThickness','arcFeather','arcBrightness','arcAltitude',
+    'pointColor','gradientColor2','glowColor',
   ];
-  const colorKeys: ColorKey[] = ['pointColor','gradientColor2','glowColor'];
 
-  const currentNumericRef = useRef<Record<NumericKey, number> | null>(null);
-  const startNumericRef = useRef<Record<NumericKey, number> | null>(null);
-  const targetNumericRef = useRef<Record<NumericKey, number> | null>(null);
-
-  const currentColorRef = useRef<Record<ColorKey, THREE.Color> | null>(null);
-  const startColorRef = useRef<Record<ColorKey, THREE.Color> | null>(null);
-  const targetColorRef = useRef<Record<ColorKey, THREE.Color> | null>(null);
+  const currentValuesRef = useRef<Record<string, any> | null>(null);
+  const startValuesRef = useRef<Record<string, any> | null>(null);
+  const targetValuesRef = useRef<Record<string, any> | null>(null);
 
   const animActiveRef = useRef<boolean>(false);
-  const animElapsedRef = useRef<number>(0);
+  const animStartTimeRef = useRef<number>(0);
   const animDurationRef = useRef<number>(0.6);
   const animEaseRef = useRef<(t: number) => number>((t: number) => t);
   const onStartRef = useRef<(() => void) | undefined>(undefined);
@@ -716,7 +698,8 @@ export function SphereWaveform({
     animDurationRef.current = Math.max(0, duration);
     animEaseRef.current = ease;
 
-    const nextNumeric = {
+    // Collect current prop values
+    const currentProps = {
       radius, pointSize, size, opacity,
       rotationX, rotationY, rotationZ,
       randomishAmount, randomishSpeed, pulseSize,
@@ -728,77 +711,51 @@ export function SphereWaveform({
       gradientAngle, sizeRandomness,
       glowStrength, glowRadiusFactor,
       arcSpawnRate, arcDuration, arcSpeed, arcSpanDeg, arcThickness, arcFeather, arcBrightness, arcAltitude,
-    } as Record<NumericKey, number>;
-
-    const nextColors: Record<ColorKey, THREE.Color> = {
-      pointColor: new THREE.Color(pointColor),
-      gradientColor2: new THREE.Color(gradientColor2),
-      glowColor: new THREE.Color(glowColor),
+      pointColor, gradientColor2, glowColor,
     };
 
-    if (!currentNumericRef.current || !currentColorRef.current) {
-      currentNumericRef.current = { ...nextNumeric };
-      currentColorRef.current = {
-        pointColor: nextColors.pointColor.clone(),
-        gradientColor2: nextColors.gradientColor2.clone(),
-        glowColor: nextColors.glowColor.clone(),
-      };
-      startNumericRef.current = { ...nextNumeric };
-      targetNumericRef.current = { ...nextNumeric };
-      startColorRef.current = {
-        pointColor: nextColors.pointColor.clone(),
-        gradientColor2: nextColors.gradientColor2.clone(),
-        glowColor: nextColors.glowColor.clone(),
-      };
-      targetColorRef.current = {
-        pointColor: nextColors.pointColor.clone(),
-        gradientColor2: nextColors.gradientColor2.clone(),
-        glowColor: nextColors.glowColor.clone(),
-      };
+    if (!currentValuesRef.current) {
+      // First render - initialize with current values
+      currentValuesRef.current = { ...currentProps };
+      startValuesRef.current = { ...currentProps };
+      targetValuesRef.current = { ...currentProps };
       animActiveRef.current = false;
-      animElapsedRef.current = 0;
       return;
     }
 
-    // Detect any change
+    // Detect changes by comparing with current animated values
     let changed = false;
-    for (const k of numericKeys) {
-      if (Math.abs(nextNumeric[k] - (targetNumericRef.current![k] ?? nextNumeric[k])) > 1e-9) { changed = true; break; }
-    }
-    if (!changed) {
-      for (const k of colorKeys) {
-        const a = nextColors[k];
-        const b = targetColorRef.current![k];
-        if (!a.equals(b)) { changed = true; break; }
+    for (const key of animatableKeys) {
+      const current = currentValuesRef.current[key];
+      const target = (currentProps as any)[key];
+      
+      if (typeof current === 'number' && typeof target === 'number') {
+        if (Math.abs(current - target) > 1e-9) {
+          changed = true;
+          break;
+        }
+      } else if (typeof current === 'string' && typeof target === 'string') {
+        if (current !== target) {
+          changed = true;
+          break;
+        }
       }
     }
 
     if (!changed) return;
 
     if (!enabled || animDurationRef.current === 0) {
-      currentNumericRef.current = { ...nextNumeric };
-      targetNumericRef.current = { ...nextNumeric };
-      currentColorRef.current!.pointColor.copy(nextColors.pointColor);
-      currentColorRef.current!.gradientColor2.copy(nextColors.gradientColor2);
-      currentColorRef.current!.glowColor.copy(nextColors.glowColor);
-      targetColorRef.current!.pointColor.copy(nextColors.pointColor);
-      targetColorRef.current!.gradientColor2.copy(nextColors.gradientColor2);
-      targetColorRef.current!.glowColor.copy(nextColors.glowColor);
+      // Snap to target values
+      currentValuesRef.current = { ...currentProps };
+      targetValuesRef.current = { ...currentProps };
       animActiveRef.current = false;
-      animElapsedRef.current = 0;
       return;
     }
 
-    // Start/restart tween from current → next
-    startNumericRef.current = { ...currentNumericRef.current };
-    targetNumericRef.current = { ...nextNumeric };
-    startColorRef.current!.pointColor.copy(currentColorRef.current!.pointColor);
-    startColorRef.current!.gradientColor2.copy(currentColorRef.current!.gradientColor2);
-    startColorRef.current!.glowColor.copy(currentColorRef.current!.glowColor);
-    targetColorRef.current!.pointColor.copy(nextColors.pointColor);
-    targetColorRef.current!.gradientColor2.copy(nextColors.gradientColor2);
-    targetColorRef.current!.glowColor.copy(nextColors.glowColor);
-    animElapsedRef.current = 0;
+    // Start animation from current → target
+    startValuesRef.current = { ...currentValuesRef.current };
+    targetValuesRef.current = { ...currentProps };
+    animStartTimeRef.current = performance.now();
     animActiveRef.current = true;
     try { onStartRef.current && onStartRef.current(); } catch {}
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -991,24 +948,43 @@ export function SphereWaveform({
       bright[i] = a.brightness;
     }
 
-    // Advance auto-transition
-    if (animActiveRef.current && currentNumericRef.current && startNumericRef.current && targetNumericRef.current && currentColorRef.current && startColorRef.current && targetColorRef.current) {
-      animElapsedRef.current += dt;
-      const t = Math.min(1, animDurationRef.current > 0 ? animElapsedRef.current / animDurationRef.current : 1);
+    // Advance auto-transition using performance.now() like the original runner
+    if (animActiveRef.current && currentValuesRef.current && startValuesRef.current && targetValuesRef.current) {
+      const now = performance.now();
+      const elapsed = now - animStartTimeRef.current;
+      const durationMs = animDurationRef.current * 1000;
+      const t = Math.min(1, durationMs === 0 ? 1 : elapsed / durationMs);
       const te = animEaseRef.current(t);
-      for (const k of numericKeys) {
-        const a = startNumericRef.current[k];
-        const b = targetNumericRef.current[k];
-        currentNumericRef.current[k] = a + (b - a) * te;
+      
+      // Interpolate all animatable values
+      for (const key of animatableKeys) {
+        const start = startValuesRef.current[key];
+        const target = targetValuesRef.current[key];
+        
+        if (typeof start === 'number' && typeof target === 'number') {
+          currentValuesRef.current[key] = start + (target - start) * te;
+        } else if (typeof start === 'string' && typeof target === 'string') {
+          // Handle color interpolation
+          try {
+            const startColor = new THREE.Color(start);
+            const targetColor = new THREE.Color(target);
+            const lerpedColor = startColor.clone().lerp(targetColor, te);
+            currentValuesRef.current[key] = `#${lerpedColor.getHexString()}`;
+          } catch {
+            // Invalid color, snap to target
+            currentValuesRef.current[key] = target;
+          }
+        }
       }
-      currentColorRef.current.pointColor.copy(startColorRef.current.pointColor).lerp(targetColorRef.current.pointColor, te);
-      currentColorRef.current.gradientColor2.copy(startColorRef.current.gradientColor2).lerp(targetColorRef.current.gradientColor2, te);
-      currentColorRef.current.glowColor.copy(startColorRef.current.glowColor).lerp(targetColorRef.current.glowColor, te);
-      if (t >= 1) { animActiveRef.current = false; try { onCompleteRef.current && onCompleteRef.current(); } catch {} }
+      
+      if (t >= 1) {
+        animActiveRef.current = false;
+        try { onCompleteRef.current && onCompleteRef.current(); } catch {}
+      }
     }
 
-    const anim = currentNumericRef.current;
-    const animColors = currentColorRef.current;
+    // Use animated values if available, otherwise fall back to props
+    const anim = currentValuesRef.current;
     const radiusV = anim?.radius ?? radius;
     const pointSizeV = anim?.pointSize ?? pointSize;
     const sizeV = anim?.size ?? size;
@@ -1037,8 +1013,12 @@ export function SphereWaveform({
     const sizeRandomnessV = anim?.sizeRandomness ?? sizeRandomness;
     const glowStrengthV = anim?.glowStrength ?? glowStrength;
     const glowRadiusFactorV = anim?.glowRadiusFactor ?? glowRadiusFactor;
-    // Arc timeline params remain driven by internal stateful spawner; anim override not applied here.
     const arcAltitudeV = anim?.arcAltitude ?? arcAltitude;
+    
+    // Color values
+    const pointColorV = anim?.pointColor ?? pointColor;
+    const gradientColor2V = anim?.gradientColor2 ?? gradientColor2;
+    const glowColorV = anim?.glowColor ?? glowColor;
 
     // Update group transform directly to avoid re-renders
     if (groupRef.current) {
@@ -1117,20 +1097,11 @@ export function SphereWaveform({
       u.uSineSpeed.value = sineSpeedV;
       u.uSineScale.value = sineScaleV;
       // Color
-      if (animColors) {
-        u.uColor.value.copy(animColors.pointColor);
-        u.uColor2.value.copy(animColors.gradientColor2);
-      } else {
-        u.uColor.value.set(pointColor);
-        u.uColor2.value.set(gradientColor2);
-      }
+      u.uColor.value.set(pointColorV);
+      u.uColor2.value.set(gradientColor2V);
       u.uEnableGradient.value = enableGradient ? 1 : 0;
       u.uGradientAngle.value = THREE.MathUtils.degToRad(gradientAngleV);
-      if (animColors) {
-        u.uGlowColor.value.copy(animColors.glowColor);
-      } else {
-        u.uGlowColor.value.set(glowColor);
-      }
+      u.uGlowColor.value.set(glowColorV);
       u.uGlowStrength.value = THREE.MathUtils.clamp(glowStrengthV, 0, 3);
       u.uGlowRadiusFactor.value = Math.max(0, glowRadiusFactorV);
       // Per-shell phase: deterministic from base seed and shell index
