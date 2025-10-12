@@ -1,20 +1,19 @@
-import { useMemo, Suspense, useEffect, useRef } from 'react';
+import { useMemo, Suspense, useEffect, useRef, useState } from 'react';
 import { Canvas } from '@react-three/fiber';
 import { OrbitControls } from '@react-three/drei';
 import * as THREE from 'three';
-import SphereWaveform from './components/SphereWaveform';
+import SphereWaveform, { type TransitionOptions } from './components/SphereWaveform';
 import { ControlSidebar } from './components/ControlSidebar';
 import { useConfigStore } from './stores/configStore';
 import { SidebarProvider, SidebarInset } from '@/components/ui/sidebar';
 import { Button } from '@/components/ui/button';
 import type { OrbitControls as OrbitControlsImpl } from 'three-stdlib';
 import AnimationSidebar from '@/components/AnimationSidebar';
-import { useAnimationRunner } from '@/hooks/useAnimationRunner';
 import { useAnimationStore } from '@/stores/animationStore';
 import { useMicAnalyzer } from '@/hooks/useMicAnalyzer';
 import { EffectComposer, Bloom } from '@react-three/postprocessing';
 
-function Scene({ volume, vertexCount, pointSize, shellCount, freezeTime, advanceCount, enableRandomishNoise, randomishAmount, enableSineNoise, sineAmount, pulseSize, enableSpin, spinSpeed, spinAxisX, spinAxisY, maskEnabled, maskRadius, maskFeather, maskInvert, sineSpeed, sineScale, randomishSpeed, pointColor, glowColor, glowStrength, glowRadiusFactor, sizeRandomness, backgroundTheme, enableRippleNoise, rippleAmount, rippleSpeed, rippleScale, enableSurfaceRipple, surfaceRippleAmount, surfaceRippleSpeed, surfaceRippleScale, enableArcs, arcMaxCount, arcSpawnRate, arcDuration, arcSpeed, arcSpanDeg, arcThickness, arcFeather, arcBrightness, arcAltitude, size, opacity, rotationX, rotationY, rotationZ, micEnvelope, randomishMicModAmount, sineMicModAmount, rippleMicModAmount, surfaceRippleMicModAmount, enableGradient, gradientColor2, gradientAngle }: { 
+function Scene({ volume, vertexCount, pointSize, shellCount, freezeTime, advanceCount, enableRandomishNoise, randomishAmount, enableSineNoise, sineAmount, pulseSize, enableSpin, spinSpeed, spinAxisX, spinAxisY, maskEnabled, maskRadius, maskFeather, maskInvert, sineSpeed, sineScale, randomishSpeed, pointColor, glowColor, glowStrength, glowRadiusFactor, sizeRandomness, backgroundTheme, enableRippleNoise, rippleAmount, rippleSpeed, rippleScale, enableSurfaceRipple, surfaceRippleAmount, surfaceRippleSpeed, surfaceRippleScale, enableArcs, arcMaxCount, arcSpawnRate, arcDuration, arcSpeed, arcSpanDeg, arcThickness, arcFeather, arcBrightness, arcAltitude, size, opacity, rotationX, rotationY, rotationZ, micEnvelope, randomishMicModAmount, sineMicModAmount, rippleMicModAmount, surfaceRippleMicModAmount, enableGradient, gradientColor2, gradientAngle, transition }: { 
   volume: number; 
   vertexCount: number; 
   pointSize: number; 
@@ -74,6 +73,7 @@ function Scene({ volume, vertexCount, pointSize, shellCount, freezeTime, advance
   enableGradient: boolean;
   gradientColor2: string;
   gradientAngle: number;
+  transition?: TransitionOptions;
 }) {
   const bg = useMemo(() => new THREE.Color(backgroundTheme === 'dark' ? '#0b0f13' : '#ffffff'), [backgroundTheme]);
   const blendingMode = backgroundTheme === 'light' ? 'normal' : 'additive' as const;
@@ -147,6 +147,7 @@ function Scene({ volume, vertexCount, pointSize, shellCount, freezeTime, advance
           sineMicModAmount={sineMicModAmount}
           rippleMicModAmount={rippleMicModAmount}
           surfaceRippleMicModAmount={surfaceRippleMicModAmount}
+          transition={transition}
         />
       </Suspense>
     </>
@@ -154,12 +155,44 @@ function Scene({ volume, vertexCount, pointSize, shellCount, freezeTime, advance
 }
 
 function App() {
-  const { config } = useConfigStore();
+  const { config, setConfig } = useConfigStore();
   const mic = useMicAnalyzer({ smoothingTimeConstant: 0.85, fftSize: 1024 });
-  useAnimationRunner();
   const ensureDefaultAnimation = useAnimationStore(s => s.ensureDefaultAnimation);
-  useEffect(() => { ensureDefaultAnimation(); }, [ensureDefaultAnimation]);
+  const { playRequestId, animations } = useAnimationStore();
   const controlsRef = useRef<OrbitControlsImpl | null>(null);
+  const [transition, setTransition] = useState<TransitionOptions>({ enabled: false });
+
+  useEffect(() => { ensureDefaultAnimation(); }, [ensureDefaultAnimation]);
+
+  // Handle animation playback via auto-transition
+  useEffect(() => {
+    if (!playRequestId) {
+      setTransition({ enabled: false });
+      return;
+    }
+    
+    const anim = animations.find(a => a.id === playRequestId);
+    if (!anim) {
+      setTransition({ enabled: false });
+      return;
+    }
+
+    // Map animation definition to transition options
+    const transitionOptions: TransitionOptions = {
+      enabled: true,
+      duration: anim.duration,
+      ease: anim.ease as any, // Full compatibility with saved animations
+      onComplete: () => {
+        // Clear the play request when animation completes
+        useAnimationStore.getState().clearPlayRequest();
+      }
+    };
+
+    setTransition(transitionOptions);
+    
+    // Apply the target config immediately
+    setConfig(anim.to);
+  }, [playRequestId, animations, setConfig]);
 
   useEffect(() => {
     if (config.micEnabled) {
@@ -194,6 +227,7 @@ function App() {
               enableGradient={config.enableGradient}
               gradientColor2={config.gradientColor2}
               gradientAngle={config.gradientAngle}
+              transition={transition}
               vertexCount={config.vertexCount}
               pointSize={config.pointSize}
               shellCount={config.shellCount}
