@@ -660,15 +660,16 @@ export function SphereWaveform({
   const lastAdvanceRef = useRef<number>(advanceCount);
   const arcsRef = useRef<Arc[]>([]);
 
-  // Auto-transition state - only animate props that are actually changing
+  // Auto-transition state - only animate visual output props, not noise parameters
+  // Noise parameters (speeds, scales) create artifacts when interpolated
   type AnimatableKey = keyof SphereWaveformProps;
   const animatableKeys: AnimatableKey[] = [
     'radius','pointSize','size','opacity',
     'rotationX','rotationY','rotationZ',
-    'randomishAmount','randomishSpeed','pulseSize',
-    'sineAmount','sineSpeed','sineScale',
-    'rippleAmount','rippleSpeed','rippleScale',
-    'surfaceRippleAmount','surfaceRippleSpeed','surfaceRippleScale',
+    'randomishAmount','pulseSize', // exclude randomishSpeed
+    'sineAmount', // exclude sineSpeed, sineScale
+    'rippleAmount', // exclude rippleSpeed, rippleScale
+    'surfaceRippleAmount', // exclude surfaceRippleSpeed, surfaceRippleScale
     'spinSpeed','spinAxisX','spinAxisY',
     'maskRadius','maskFeather',
     'gradientAngle','sizeRandomness',
@@ -698,14 +699,14 @@ export function SphereWaveform({
     animDurationRef.current = Math.max(0, duration);
     animEaseRef.current = ease;
 
-    // Collect current prop values
+    // Collect current prop values (only animatable ones)
     const currentProps = {
       radius, pointSize, size, opacity,
       rotationX, rotationY, rotationZ,
-      randomishAmount, randomishSpeed, pulseSize,
-      sineAmount, sineSpeed, sineScale,
-      rippleAmount, rippleSpeed, rippleScale,
-      surfaceRippleAmount, surfaceRippleSpeed, surfaceRippleScale,
+      randomishAmount, pulseSize,
+      sineAmount,
+      rippleAmount,
+      surfaceRippleAmount,
       spinSpeed, spinAxisX, spinAxisY,
       maskRadius, maskFeather,
       gradientAngle, sizeRandomness,
@@ -771,10 +772,10 @@ export function SphereWaveform({
     transition?.enabled, transition?.duration, transition?.ease,
     radius, pointSize, size, opacity,
     rotationX, rotationY, rotationZ,
-    randomishAmount, randomishSpeed, pulseSize,
-    sineAmount, sineSpeed, sineScale,
-    rippleAmount, rippleSpeed, rippleScale,
-    surfaceRippleAmount, surfaceRippleSpeed, surfaceRippleScale,
+    randomishAmount, pulseSize,
+    sineAmount,
+    rippleAmount,
+    surfaceRippleAmount,
     spinSpeed, spinAxisX, spinAxisY,
     maskRadius, maskFeather,
     gradientAngle, sizeRandomness,
@@ -1001,17 +1002,17 @@ export function SphereWaveform({
     const rotationYV = anim?.rotationY ?? rotationY;
     const rotationZV = anim?.rotationZ ?? rotationZ;
     const randomishAmountV = anim?.randomishAmount ?? randomishAmount;
-    const randomishSpeedV = anim?.randomishSpeed ?? randomishSpeed;
+    const randomishSpeedV = randomishSpeed; // Always use prop value (not animated)
     const pulseSizeV = anim?.pulseSize ?? pulseSize;
     const sineAmountV = anim?.sineAmount ?? sineAmount;
-    const sineSpeedV = anim?.sineSpeed ?? sineSpeed;
-    const sineScaleV = anim?.sineScale ?? sineScale;
+    const sineSpeedV = sineSpeed; // Always use prop value (not animated)
+    const sineScaleV = sineScale; // Always use prop value (not animated)
     const rippleAmountV = anim?.rippleAmount ?? rippleAmount;
-    const rippleSpeedV = anim?.rippleSpeed ?? rippleSpeed;
-    const rippleScaleV = anim?.rippleScale ?? rippleScale;
+    const rippleSpeedV = rippleSpeed; // Always use prop value (not animated)
+    const rippleScaleV = rippleScale; // Always use prop value (not animated)
     const surfaceRippleAmountV = anim?.surfaceRippleAmount ?? surfaceRippleAmount;
-    const surfaceRippleSpeedV = anim?.surfaceRippleSpeed ?? surfaceRippleSpeed;
-    const surfaceRippleScaleV = anim?.surfaceRippleScale ?? surfaceRippleScale;
+    const surfaceRippleSpeedV = surfaceRippleSpeed; // Always use prop value (not animated)
+    const surfaceRippleScaleV = surfaceRippleScale; // Always use prop value (not animated)
     const spinSpeedV = anim?.spinSpeed ?? spinSpeed;
     const spinAxisXV = anim?.spinAxisX ?? spinAxisX;
     const spinAxisYV = anim?.spinAxisY ?? spinAxisY;
