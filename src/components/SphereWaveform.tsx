@@ -689,6 +689,7 @@ export function SphereWaveform({
   const animEaseRef = useRef<(t: number) => number>((t: number) => t);
   const onStartRef = useRef<(() => void) | undefined>(undefined);
   const onCompleteRef = useRef<(() => void) | undefined>(undefined);
+  const previousPropsRef = useRef<Record<string, any> | null>(null);
 
   // Initialize/handle prop changes → targets and (optionally) start tween
   useEffect(() => {
@@ -717,39 +718,64 @@ export function SphereWaveform({
     };
 
     if (!currentValuesRef.current) {
-      // First render - initialize with current values
-      currentValuesRef.current = { ...currentProps };
-      startValuesRef.current = { ...currentProps };
-      targetValuesRef.current = { ...currentProps };
+      // First render - initialize with current visual state (not target props)
+      // This ensures transitions start from the actual current visual state
+      const currentVisualState = {
+        radius, pointSize, size, opacity,
+        rotationX, rotationY, rotationZ,
+        randomishAmount, pulseSize,
+        sineAmount,
+        rippleAmount,
+        surfaceRippleAmount,
+        spinSpeed, spinAxisX, spinAxisY,
+        maskRadius, maskFeather,
+        gradientAngle, sizeRandomness,
+        glowStrength, glowRadiusFactor,
+        arcSpawnRate, arcDuration, arcSpeed, arcSpanDeg, arcThickness, arcFeather, arcBrightness, arcAltitude,
+        pointColor, gradientColor2, glowColor,
+      };
+      currentValuesRef.current = { ...currentVisualState };
+      startValuesRef.current = { ...currentVisualState };
+      targetValuesRef.current = { ...currentVisualState };
       animActiveRef.current = false;
       return;
     }
 
-    // Detect changes by comparing with previous target values
+    // Detect changes by comparing with previous props
     let changed = false;
-    for (const key of animatableKeys) {
-      const previousTarget = targetValuesRef.current?.[key];
-      const newTarget = (currentProps as any)[key];
-      
-      if (typeof previousTarget === 'number' && typeof newTarget === 'number') {
-        if (Math.abs(previousTarget - newTarget) > 1e-9) {
-          changed = true;
-          break;
-        }
-      } else if (typeof previousTarget === 'string' && typeof newTarget === 'string') {
-        if (previousTarget !== newTarget) {
-          changed = true;
-          break;
+    if (previousPropsRef.current) {
+      for (const key of animatableKeys) {
+        const previousValue = previousPropsRef.current[key];
+        const newValue = (currentProps as any)[key];
+        
+        if (typeof previousValue === 'number' && typeof newValue === 'number') {
+          if (Math.abs(previousValue - newValue) > 1e-9) {
+            changed = true;
+            break;
+          }
+        } else if (typeof previousValue === 'string' && typeof newValue === 'string') {
+          if (previousValue !== newValue) {
+            changed = true;
+            break;
+          }
         }
       }
+    } else {
+      // First time detecting changes - always start transition
+      changed = true;
     }
 
-    if (!changed) return;
+    if (!changed) {
+      // Update previous props but don't start animation
+      previousPropsRef.current = { ...currentProps };
+      return;
+    }
 
     if (!enabled || animDurationRef.current === 0) {
       // Snap to target values
       currentValuesRef.current = { ...currentProps };
       targetValuesRef.current = { ...currentProps };
+      previousPropsRef.current = { ...currentProps };
       animActiveRef.current = false;
       return;
     }
@@ -757,6 +783,7 @@ export function SphereWaveform({
     // Start animation from current animated values → new target
     startValuesRef.current = { ...currentValuesRef.current };
     targetValuesRef.current = { ...currentProps };
+    previousPropsRef.current = { ...currentProps };
     animStartTimeRef.current = performance.now();
     animActiveRef.current = true;
     
