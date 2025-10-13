@@ -190,7 +190,7 @@ function App() {
 
     setTransition(transitionOptions);
     
-    // Apply the target config immediately
+    // Apply the target config - this will trigger auto-transition from current → target
     setConfig(anim.to);
   }, [playRequestId, animations, setConfig]);
 

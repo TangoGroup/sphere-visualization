@@ -757,6 +757,14 @@ export function SphereWaveform({
     targetValuesRef.current = { ...currentProps };
     animStartTimeRef.current = performance.now();
     animActiveRef.current = true;
+    
+    // Debug: log what we're animating
+    console.log('Starting transition:', {
+      from: startValuesRef.current,
+      to: targetValuesRef.current,
+      duration: animDurationRef.current
+    });
+    
     try { onStartRef.current && onStartRef.current(); } catch {}
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
