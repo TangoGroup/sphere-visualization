@@ -182,6 +182,11 @@ function App() {
       enabled: true,
       duration: anim.duration,
       ease: anim.ease as any, // Full compatibility with saved animations
+      onStart: () => {
+        // Apply target config when transition actually starts
+        // This ensures we transition from current visual state, not target state
+        setConfig(anim.to);
+      },
       onComplete: () => {
         // Clear the play request when animation completes
         useAnimationStore.getState().clearPlayRequest();
@@ -189,9 +194,6 @@ function App() {
     };
 
     setTransition(transitionOptions);
-    
-    // Apply the target config - this will trigger auto-transition from current → target
-    setConfig(anim.to);
   }, [playRequestId, animations, setConfig]);
 
   useEffect(() => {
