@@ -780,6 +780,12 @@ export function SphereWaveform({
       return;
     }
 
+    // Log BEFORE transition starts
+    console.log('=== TRANSITION START DEBUG ===');
+    console.log('BEFORE transition - currentValuesRef.current:', currentValuesRef.current);
+    console.log('BEFORE transition - currentProps:', currentProps);
+    console.log('BEFORE transition - previousPropsRef.current:', previousPropsRef.current);
+    
     // Start animation from current animated values → new target
     startValuesRef.current = { ...currentValuesRef.current };
     targetValuesRef.current = { ...currentProps };
@@ -787,12 +793,43 @@ export function SphereWaveform({
     animStartTimeRef.current = performance.now();
     animActiveRef.current = true;
     
-    // Debug: log what we're animating
-    console.log('Starting transition:', {
-      from: startValuesRef.current,
-      to: targetValuesRef.current,
-      duration: animDurationRef.current
-    });
+    // Log AFTER transition starts
+    console.log('AFTER transition - startValuesRef.current:', startValuesRef.current);
+    console.log('AFTER transition - targetValuesRef.current:', targetValuesRef.current);
+    console.log('AFTER transition - currentValuesRef.current:', currentValuesRef.current);
+    
+    // Calculate and log differences
+    console.log('=== DIFFERENCES ===');
+    for (const key of animatableKeys) {
+      const current = currentValuesRef.current[key];
+      const start = startValuesRef.current[key];
+      const target = targetValuesRef.current[key];
+      
+      if (typeof current === 'number' && typeof start === 'number' && typeof target === 'number') {
+        const currentToStartDiff = Math.abs(current - start);
+        const startToTargetDiff = Math.abs(start - target);
+        if (currentToStartDiff > 1e-9 || startToTargetDiff > 1e-9) {
+          console.log(`${key}:`, {
+            current,
+            start,
+            target,
+            currentToStartDiff,
+            startToTargetDiff
+          });
+        }
+      } else if (typeof current === 'string' && typeof start === 'string' && typeof target === 'string') {
+        if (current !== start || start !== target) {
+          console.log(`${key}:`, {
+            current,
+            start,
+            target,
+            currentChanged: current !== start,
+            startToTargetChanged: start !== target
+          });
+        }
+      }
+    }
+    console.log('=== END TRANSITION DEBUG ===');
     
     try { onStartRef.current && onStartRef.current(); } catch {}
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -993,28 +1030,51 @@ export function SphereWaveform({
       const t = Math.min(1, durationMs === 0 ? 1 : elapsed / durationMs);
       const te = animEaseRef.current(t);
       
+      // Log first few frames of animation
+      if (t < 0.1) {
+        console.log(`=== ANIMATION FRAME ${Math.floor(t * 100)}% ===`);
+        console.log('t:', t, 'te:', te, 'elapsed:', elapsed, 'durationMs:', durationMs);
+      }
+      
       // Interpolate all animatable values
       for (const key of animatableKeys) {
         const start = startValuesRef.current[key];
         const target = targetValuesRef.current[key];
+        const before = currentValuesRef.current[key];
         
         if (typeof start === 'number' && typeof target === 'number') {
-          currentValuesRef.current[key] = start + (target - start) * te;
+          const newValue = start + (target - start) * te;
+          currentValuesRef.current[key] = newValue;
+          
+          // Log significant changes
+          if (t < 0.1 && Math.abs(before - newValue) > 1e-6) {
+            console.log(`${key}: ${before} → ${newValue} (start: ${start}, target: ${target}, te: ${te})`);
+          }
         } else if (typeof start === 'string' && typeof target === 'string') {
           // Handle color interpolation
           try {
             const startColor = new THREE.Color(start);
             const targetColor = new THREE.Color(target);
             const lerpedColor = startColor.clone().lerp(targetColor, te);
-            currentValuesRef.current[key] = `#${lerpedColor.getHexString()}`;
+            const newValue = `#${lerpedColor.getHexString()}`;
+            currentValuesRef.current[key] = newValue;
+            
+            // Log color changes
+            if (t < 0.1 && before !== newValue) {
+              console.log(`${key}: ${before} → ${newValue} (start: ${start}, target: ${target}, te: ${te})`);
+            }
           } catch {
             // Invalid color, snap to target
             currentValuesRef.current[key] = target;
+            if (t < 0.1) {
+              console.log(`${key}: ${before} → ${target} (invalid color, snapped)`);
+            }
           }
         }
       }
       
       if (t >= 1) {
+        console.log('=== ANIMATION COMPLETE ===');
         animActiveRef.current = false;
         try { onCompleteRef.current && onCompleteRef.current(); } catch {}
       }
