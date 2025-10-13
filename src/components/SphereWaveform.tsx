@@ -662,20 +662,20 @@ export function SphereWaveform({
 
   // Auto-transition state - only animate visual output props, not noise parameters
   // Noise parameters (speeds, scales) create artifacts when interpolated
-  // Enable toggles must be animated so effects turn on before animating amounts
+  // Keep all effects enabled, animate amounts (zero = off)
   type AnimatableKey = keyof SphereWaveformProps;
   const animatableKeys: AnimatableKey[] = [
     'radius','pointSize','size','opacity',
     'rotationX','rotationY','rotationZ',
-    'enableRandomishNoise','randomishAmount','pulseSize', // exclude randomishSpeed
-    'enableSineNoise','sineAmount', // exclude sineSpeed, sineScale
-    'enableRippleNoise','rippleAmount', // exclude rippleSpeed, rippleScale
-    'enableSurfaceRipple','surfaceRippleAmount', // exclude surfaceRippleSpeed, surfaceRippleScale
-    'enableSpin','spinSpeed','spinAxisX','spinAxisY',
-    'maskEnabled','maskRadius','maskFeather',
-    'enableGradient','gradientAngle','sizeRandomness',
+    'randomishAmount','pulseSize', // exclude randomishSpeed
+    'sineAmount', // exclude sineSpeed, sineScale
+    'rippleAmount', // exclude rippleSpeed, rippleScale
+    'surfaceRippleAmount', // exclude surfaceRippleSpeed, surfaceRippleScale
+    'spinSpeed','spinAxisX','spinAxisY',
+    'maskRadius','maskFeather',
+    'gradientAngle','sizeRandomness',
     'glowStrength','glowRadiusFactor',
-    'enableArcs','arcSpawnRate','arcDuration','arcSpeed','arcSpanDeg','arcThickness','arcFeather','arcBrightness','arcAltitude',
+    'arcSpawnRate','arcDuration','arcSpeed','arcSpanDeg','arcThickness','arcFeather','arcBrightness','arcAltitude',
     'pointColor','gradientColor2','glowColor',
   ];
 
@@ -704,15 +704,15 @@ export function SphereWaveform({
     const currentProps = {
       radius, pointSize, size, opacity,
       rotationX, rotationY, rotationZ,
-      enableRandomishNoise, randomishAmount, pulseSize,
-      enableSineNoise, sineAmount,
-      enableRippleNoise, rippleAmount,
-      enableSurfaceRipple, surfaceRippleAmount,
-      enableSpin, spinSpeed, spinAxisX, spinAxisY,
-      maskEnabled, maskRadius, maskFeather,
-      enableGradient, gradientAngle, sizeRandomness,
+      randomishAmount, pulseSize,
+      sineAmount,
+      rippleAmount,
+      surfaceRippleAmount,
+      spinSpeed, spinAxisX, spinAxisY,
+      maskRadius, maskFeather,
+      gradientAngle, sizeRandomness,
       glowStrength, glowRadiusFactor,
-      enableArcs, arcSpawnRate, arcDuration, arcSpeed, arcSpanDeg, arcThickness, arcFeather, arcBrightness, arcAltitude,
+      arcSpawnRate, arcDuration, arcSpeed, arcSpanDeg, arcThickness, arcFeather, arcBrightness, arcAltitude,
       pointColor, gradientColor2, glowColor,
     };
 
@@ -973,9 +973,6 @@ export function SphereWaveform({
         
         if (typeof start === 'number' && typeof target === 'number') {
           currentValuesRef.current[key] = start + (target - start) * te;
-        } else if (typeof start === 'boolean' && typeof target === 'boolean') {
-          // Boolean interpolation: snap to target when t > 0.5
-          currentValuesRef.current[key] = te > 0.5 ? target : start;
         } else if (typeof start === 'string' && typeof target === 'string') {
           // Handle color interpolation
           try {
@@ -1005,35 +1002,27 @@ export function SphereWaveform({
     const rotationXV = anim?.rotationX ?? rotationX;
     const rotationYV = anim?.rotationY ?? rotationY;
     const rotationZV = anim?.rotationZ ?? rotationZ;
-    const enableRandomishNoiseV = anim?.enableRandomishNoise ?? enableRandomishNoise;
     const randomishAmountV = anim?.randomishAmount ?? randomishAmount;
     const randomishSpeedV = randomishSpeed; // Always use prop value (not animated)
     const pulseSizeV = anim?.pulseSize ?? pulseSize;
-    const enableSineNoiseV = anim?.enableSineNoise ?? enableSineNoise;
     const sineAmountV = anim?.sineAmount ?? sineAmount;
     const sineSpeedV = sineSpeed; // Always use prop value (not animated)
     const sineScaleV = sineScale; // Always use prop value (not animated)
-    const enableRippleNoiseV = anim?.enableRippleNoise ?? enableRippleNoise;
     const rippleAmountV = anim?.rippleAmount ?? rippleAmount;
     const rippleSpeedV = rippleSpeed; // Always use prop value (not animated)
     const rippleScaleV = rippleScale; // Always use prop value (not animated)
-    const enableSurfaceRippleV = anim?.enableSurfaceRipple ?? enableSurfaceRipple;
     const surfaceRippleAmountV = anim?.surfaceRippleAmount ?? surfaceRippleAmount;
     const surfaceRippleSpeedV = surfaceRippleSpeed; // Always use prop value (not animated)
     const surfaceRippleScaleV = surfaceRippleScale; // Always use prop value (not animated)
-    const enableSpinV = anim?.enableSpin ?? enableSpin;
     const spinSpeedV = anim?.spinSpeed ?? spinSpeed;
     const spinAxisXV = anim?.spinAxisX ?? spinAxisX;
     const spinAxisYV = anim?.spinAxisY ?? spinAxisY;
-    const maskEnabledV = anim?.maskEnabled ?? maskEnabled;
     const maskRadiusV = anim?.maskRadius ?? maskRadius;
     const maskFeatherV = anim?.maskFeather ?? maskFeather;
-    const enableGradientV = anim?.enableGradient ?? enableGradient;
     const gradientAngleV = anim?.gradientAngle ?? gradientAngle;
     const sizeRandomnessV = anim?.sizeRandomness ?? sizeRandomness;
     const glowStrengthV = anim?.glowStrength ?? glowStrength;
     const glowRadiusFactorV = anim?.glowRadiusFactor ?? glowRadiusFactor;
-    const enableArcsV = anim?.enableArcs ?? enableArcs;
     const arcAltitudeV = anim?.arcAltitude ?? arcAltitude;
     
     // Color values
@@ -1063,7 +1052,7 @@ export function SphereWaveform({
         u.uFov.value = (cam.fov * Math.PI) / 180;
       }
       u.uVolume.value = THREE.MathUtils.clamp(volume, 0, 1);
-      u.uEnableRandomish.value = enableRandomishNoiseV ? 1 : 0;
+      u.uEnableRandomish.value = 1; // Always enabled
       const micEnv = THREE.MathUtils.clamp(micEnvelope, 0, 1);
       const randomishAmountFinal = THREE.MathUtils.clamp(
         (randomishAmountV ?? 0) + micEnv * THREE.MathUtils.clamp(randomishMicModAmount ?? 0, 0, 1),
@@ -1071,7 +1060,7 @@ export function SphereWaveform({
         1
       );
       u.uRandomishAmount.value = randomishAmountFinal;
-      u.uEnableSine.value = enableSineNoiseV ? 1 : 0;
+      u.uEnableSine.value = 1; // Always enabled
       const sineAmountFinal = THREE.MathUtils.clamp(
         (sineAmountV ?? 0) + micEnv * THREE.MathUtils.clamp(sineMicModAmount ?? 0, 0, 1),
         0,
@@ -1083,7 +1072,7 @@ export function SphereWaveform({
       u.uOpacity.value = THREE.MathUtils.clamp(opacityV, 0, 1);
       u.uSizeRandomness.value = THREE.MathUtils.clamp(sizeRandomnessV, 0, 1);
       // Ripple
-      u.uEnableRipple.value = enableRippleNoiseV ? 1 : 0;
+      u.uEnableRipple.value = 1; // Always enabled
       u.uRippleAmount.value = THREE.MathUtils.clamp(
         (rippleAmountV ?? 0) + micEnv * THREE.MathUtils.clamp(rippleMicModAmount ?? 0, 0, 1),
         0,
@@ -1092,7 +1081,7 @@ export function SphereWaveform({
       u.uRippleSpeed.value = rippleSpeedV;
       u.uRippleScale.value = rippleScaleV;
       // Surface ripple
-      u.uEnableSurfaceRipple.value = enableSurfaceRippleV ? 1 : 0;
+      u.uEnableSurfaceRipple.value = 1; // Always enabled
       u.uSurfaceRippleAmount.value = THREE.MathUtils.clamp(
         (surfaceRippleAmountV ?? 0) + micEnv * THREE.MathUtils.clamp(surfaceRippleMicModAmount ?? 0, 0, 1),
         0,
@@ -1100,12 +1089,12 @@ export function SphereWaveform({
       );
       u.uSurfaceRippleSpeed.value = surfaceRippleSpeedV;
       u.uSurfaceRippleScale.value = surfaceRippleScaleV;
-      u.uEnableSpin.value = enableSpinV ? 1 : 0;
+      u.uEnableSpin.value = 1; // Always enabled
       u.uSpinSpeed.value = spinSpeedV;
       u.uSpinAxisX.value = spinAxisXV;
       u.uSpinAxisY.value = spinAxisYV;
       // Mask that follows sphere center in screen space, and scales with view
-      u.uMaskEnabled.value = maskEnabledV ? 1 : 0;
+      u.uMaskEnabled.value = 1; // Always enabled
       u.uMaskInvert.value = maskInvert ? 1 : 0;
       const sphereCenter = new THREE.Vector3(0, 0, 0);
       const centerNdc = sphereCenter.clone().project(cam);
@@ -1120,7 +1109,7 @@ export function SphereWaveform({
       // Color
       u.uColor.value.set(pointColorV);
       u.uColor2.value.set(gradientColor2V);
-      u.uEnableGradient.value = enableGradientV ? 1 : 0;
+      u.uEnableGradient.value = 1; // Always enabled
       u.uGradientAngle.value = THREE.MathUtils.degToRad(gradientAngleV);
       u.uGlowColor.value.set(glowColorV);
       u.uGlowStrength.value = THREE.MathUtils.clamp(glowStrengthV, 0, 3);
@@ -1130,7 +1119,7 @@ export function SphereWaveform({
       const jitter = 1.0; // read directly from config in App if needed; default 1 here
       u.uShellPhase.value = (phaseBase - Math.floor(phaseBase)) * jitter;
       // Arcs
-      u.uArcsActive.value = enableArcsV ? arcsActive : 0;
+      u.uArcsActive.value = arcsActive; // Always enabled
       u.uArcCenters.value.set(centers);
       u.uArcTangents.value.set(tangents);
       u.uArcT0.value.set(t0);
