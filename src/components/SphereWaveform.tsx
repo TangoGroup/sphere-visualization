@@ -725,19 +725,19 @@ export function SphereWaveform({
       return;
     }
 
-    // Detect changes by comparing with current animated values
+    // Detect changes by comparing with previous target values
     let changed = false;
     for (const key of animatableKeys) {
-      const current = currentValuesRef.current[key];
-      const target = (currentProps as any)[key];
+      const previousTarget = targetValuesRef.current?.[key];
+      const newTarget = (currentProps as any)[key];
       
-      if (typeof current === 'number' && typeof target === 'number') {
-        if (Math.abs(current - target) > 1e-9) {
+      if (typeof previousTarget === 'number' && typeof newTarget === 'number') {
+        if (Math.abs(previousTarget - newTarget) > 1e-9) {
           changed = true;
           break;
         }
-      } else if (typeof current === 'string' && typeof target === 'string') {
-        if (current !== target) {
+      } else if (typeof previousTarget === 'string' && typeof newTarget === 'string') {
+        if (previousTarget !== newTarget) {
           changed = true;
           break;
         }
@@ -754,7 +754,7 @@ export function SphereWaveform({
       return;
     }
 
-    // Start animation from current → target
+    // Start animation from current animated values → new target
     startValuesRef.current = { ...currentValuesRef.current };
     targetValuesRef.current = { ...currentProps };
     animStartTimeRef.current = performance.now();
