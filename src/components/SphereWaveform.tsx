@@ -773,10 +773,19 @@ export function SphereWaveform({
 
     if (!enabled || animDurationRef.current === 0) {
       // Snap to target values
+      console.log('=== SNAPPING VALUES (NO TRANSITION) ===');
+      console.log('enabled:', enabled, 'duration:', animDurationRef.current);
+      console.log('transition:', transition);
+      console.log('currentValuesRef.current BEFORE snap:', currentValuesRef.current);
+      console.log('currentProps (target):', currentProps);
+      
       currentValuesRef.current = { ...currentProps };
       targetValuesRef.current = { ...currentProps };
       previousPropsRef.current = { ...currentProps };
       animActiveRef.current = false;
+      
+      console.log('currentValuesRef.current AFTER snap:', currentValuesRef.current);
+      console.log('=== END SNAP ===');
       return;
     }
 
