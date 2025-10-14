@@ -693,7 +693,7 @@ export function SphereWaveform({
 
   // Initialize/handle prop changes → targets and (optionally) start tween
   useEffect(() => {
-    const enabled = Boolean(transition?.enabled);
+    const enabled = Boolean(transition?.enabled ?? true);
     const duration = (transition?.duration ?? 0.6);
     const ease = getEaser(transition?.ease ?? 'power2.inOut');
     onStartRef.current = transition?.onStart;
@@ -734,10 +734,16 @@ export function SphereWaveform({
         arcSpawnRate, arcDuration, arcSpeed, arcSpanDeg, arcThickness, arcFeather, arcBrightness, arcAltitude,
         pointColor, gradientColor2, glowColor,
       };
+      console.log('=== INITIALIZING currentValuesRef ===');
+      console.log('currentVisualState:', currentVisualState);
+      
       currentValuesRef.current = { ...currentVisualState };
       startValuesRef.current = { ...currentVisualState };
       targetValuesRef.current = { ...currentVisualState };
       animActiveRef.current = false;
+      
+      console.log('currentValuesRef.current after init:', currentValuesRef.current);
+      console.log('=== END INIT ===');
       return;
     }
 
@@ -790,11 +796,19 @@ export function SphereWaveform({
     }
 
     // Start animation from current animated values → new target
+    console.log('=== STARTING TRANSITION ===');
+    console.log('currentValuesRef.current BEFORE transition start:', currentValuesRef.current);
+    console.log('currentProps (target):', currentProps);
+    
     startValuesRef.current = { ...currentValuesRef.current };
     targetValuesRef.current = { ...currentProps };
     previousPropsRef.current = { ...currentProps };
     animStartTimeRef.current = performance.now();
     animActiveRef.current = true;
+    
+    console.log('startValuesRef.current:', startValuesRef.current);
+    console.log('targetValuesRef.current:', targetValuesRef.current);
+    console.log('=== END TRANSITION START ===');
     
     try { onStartRef.current && onStartRef.current(); } catch {}
   // eslint-disable-next-line react-hooks/exhaustive-deps
