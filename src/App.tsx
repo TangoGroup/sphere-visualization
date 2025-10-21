@@ -2,7 +2,7 @@ import { useMemo, Suspense, useEffect, useRef, useState } from 'react';
 import { Canvas } from '@react-three/fiber';
 import { OrbitControls } from '@react-three/drei';
 import * as THREE from 'three';
-import SphereWaveform, { type TransitionOptions } from './components/SphereWaveform';
+import SphereWaveform from './components/SphereWaveform';
 import { ControlSidebar } from './components/ControlSidebar';
 import { useConfigStore } from './stores/configStore';
 import { SidebarProvider, SidebarInset } from '@/components/ui/sidebar';
@@ -13,23 +13,87 @@ import { useAnimationStore } from '@/stores/animationStore';
 import { useMicAnalyzer } from '@/hooks/useMicAnalyzer';
 import { EffectComposer, Bloom } from '@react-three/postprocessing';
 
-function Scene({ volume, vertexCount, pointSize, shellCount, freezeTime, advanceCount, enableRandomishNoise, randomishAmount, enableSineNoise, sineAmount, pulseSize, enableSpin, spinSpeed, spinAxisX, spinAxisY, maskEnabled, maskRadius, maskFeather, maskInvert, sineSpeed, sineScale, randomishSpeed, pointColor, glowColor, glowStrength, glowRadiusFactor, sizeRandomness, backgroundTheme, enableRippleNoise, rippleAmount, rippleSpeed, rippleScale, enableSurfaceRipple, surfaceRippleAmount, surfaceRippleSpeed, surfaceRippleScale, enableArcs, arcMaxCount, arcSpawnRate, arcDuration, arcSpeed, arcSpanDeg, arcThickness, arcFeather, arcBrightness, arcAltitude, size, opacity, rotationX, rotationY, rotationZ, micEnvelope, randomishMicModAmount, sineMicModAmount, rippleMicModAmount, surfaceRippleMicModAmount, enableGradient, gradientColor2, gradientAngle, transition }: { 
+// Easing util (matches component eases)
+type AnimEase =
+  | 'linear'
+  | 'power1.in' | 'power1.out' | 'power1.inOut'
+  | 'power2.in' | 'power2.out' | 'power2.inOut'
+  | 'power3.in' | 'power3.out' | 'power3.inOut'
+  | 'power4.in' | 'power4.out' | 'power4.inOut'
+  | 'sine.in' | 'sine.out' | 'sine.inOut'
+  | 'expo.in' | 'expo.out' | 'expo.inOut'
+  | 'back.in' | 'back.out' | 'back.inOut'
+  | 'elastic.in' | 'elastic.out' | 'elastic.inOut'
+  | 'bounce.in' | 'bounce.out' | 'bounce.inOut';
+
+function getEaser(name: AnimEase | undefined): (t: number) => number {
+  switch (name) {
+    case 'linear': return (t: number) => t;
+    case 'power1.in': return (t: number) => t * t;
+    case 'power1.out': return (t: number) => 1 - Math.pow(1 - t, 2);
+    case 'power1.inOut': return (t: number) => (t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2);
+    case 'power2.in': return (t: number) => t * t * t;
+    case 'power2.out': return (t: number) => 1 - Math.pow(1 - t, 3);
+    case 'power2.inOut': return (t: number) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
+    case 'power3.in': return (t: number) => t * t * t * t;
+    case 'power3.out': return (t: number) => 1 - Math.pow(1 - t, 4);
+    case 'power3.inOut': return (t: number) => (t < 0.5 ? 8 * t * t * t * t : 1 - Math.pow(-2 * t + 2, 4) / 2);
+    case 'power4.in': return (t: number) => t * t * t * t * t;
+    case 'power4.out': return (t: number) => 1 - Math.pow(1 - t, 5);
+    case 'power4.inOut': return (t: number) => (t < 0.5 ? 16 * t * t * t * t * t : 1 - Math.pow(-2 * t + 2, 5) / 2);
+    case 'sine.in': return (t: number) => 1 - Math.cos((t * Math.PI) / 2);
+    case 'sine.out': return (t: number) => Math.sin((t * Math.PI) / 2);
+    case 'sine.inOut': return (t: number) => -(Math.cos(Math.PI * t) - 1) / 2;
+    case 'expo.in': return (t: number) => (t === 0 ? 0 : Math.pow(2, 10 * (t - 1)));
+    case 'expo.out': return (t: number) => (t === 1 ? 1 : 1 - Math.pow(2, -10 * t));
+    case 'expo.inOut': return (t: number) => {
+      if (t === 0 || t === 1) return t;
+      return t < 0.5 ? Math.pow(2, 20 * t - 10) / 2 : (2 - Math.pow(2, -20 * t + 10)) / 2;
+    };
+    case 'back.in': return (t: number) => 2.7 * t * t * t - 1.7 * t * t;
+    case 'back.out': return (t: number) => 1 + 2.7 * Math.pow(t - 1, 3) + 1.7 * Math.pow(t - 1, 2);
+    case 'back.inOut': return (t: number) => {
+      const c1 = 1.70158; const c2 = c1 * 1.525;
+      return t < 0.5 ? (Math.pow(2 * t, 2) * ((c2 + 1) * 2 * t - c2)) / 2 : (Math.pow(2 * t - 2, 2) * ((c2 + 1) * (t * 2 - 2) + c2) + 2) / 2;
+    };
+    case 'elastic.in': return (t: number) => { const c4 = (2 * Math.PI) / 3; return t === 0 ? 0 : t === 1 ? 1 : -Math.pow(2, 10 * t - 10) * Math.sin((t * 10 - 10.75) * c4); };
+    case 'elastic.out': return (t: number) => { const c4 = (2 * Math.PI) / 3; return t === 0 ? 0 : t === 1 ? 1 : Math.pow(2, -10 * t) * Math.sin((t * 10 - 0.75) * c4) + 1; };
+    case 'elastic.inOut': return (t: number) => { const c5 = (2 * Math.PI) / 4.5; return t === 0 ? 0 : t === 1 ? 1 : t < 0.5 ? -(Math.pow(2, 20 * t - 10) * Math.sin((20 * t - 11.125) * c5)) / 2 : (Math.pow(2, -20 * t + 10) * Math.sin((20 * t - 11.125) * c5)) / 2 + 1; };
+    case 'bounce.in': return (t: number) => 1 - getEaser('bounce.out')(1 - t);
+    case 'bounce.out': return (t: number) => { const n1 = 7.5625; const d1 = 2.75; if (t < 1 / d1) { return n1 * t * t; } else if (t < 2 / d1) { return n1 * (t -= 1.5 / d1) * t + 0.75; } else if (t < 2.5 / d1) { return n1 * (t -= 2.25 / d1) * t + 0.9375; } else { return n1 * (t -= 2.625 / d1) * t + 0.984375; } };
+    case 'bounce.inOut': return (t: number) => t < 0.5 ? (1 - getEaser('bounce.out')(1 - 2 * t)) / 2 : (1 + getEaser('bounce.out')(2 * t - 1)) / 2;
+    default: return (t: number) => t;
+  }
+}
+
+type AnimatableNumericKey =
+  | 'pointSize' | 'size' | 'opacity'
+  | 'rotationX' | 'rotationY' | 'rotationZ'
+  | 'randomishAmount' | 'pulseSize'
+  | 'sineAmount'
+  | 'rippleAmount'
+  | 'surfaceRippleAmount'
+  | 'spinSpeed' | 'spinAxisX' | 'spinAxisY'
+  | 'maskRadius' | 'maskFeather'
+  | 'gradientAngle' | 'sizeRandomness'
+  | 'glowStrength' | 'glowRadiusFactor'
+  | 'arcSpawnRate' | 'arcDuration' | 'arcSpeed' | 'arcSpanDeg' | 'arcThickness' | 'arcFeather' | 'arcBrightness' | 'arcAltitude';
+
+type AnimatableColorKey = 'pointColor' | 'gradientColor2' | 'glowColor';
+
+function Scene({ volume, vertexCount, pointSize, shellCount, freezeTime, advanceCount, randomishAmount, sineAmount, pulseSize, spinSpeed, spinAxisX, spinAxisY, maskRadius, maskFeather, maskInvert, sineSpeed, sineScale, randomishSpeed, pointColor, glowColor, glowStrength, glowRadiusFactor, sizeRandomness, backgroundTheme, rippleAmount, rippleSpeed, rippleScale, surfaceRippleAmount, surfaceRippleSpeed, surfaceRippleScale, arcMaxCount, arcSpawnRate, arcDuration, arcSpeed, arcSpanDeg, arcThickness, arcFeather, arcBrightness, arcAltitude, size, opacity, rotationX, rotationY, rotationZ, micEnvelope, randomishMicModAmount, sineMicModAmount, rippleMicModAmount, surfaceRippleMicModAmount, gradientColor2, gradientAngle, morph }: { 
   volume: number; 
   vertexCount: number; 
   pointSize: number; 
   shellCount: number; 
   freezeTime: boolean; 
   advanceCount: number; 
-  enableRandomishNoise: boolean;
   randomishAmount: number;
-  enableSineNoise: boolean;
   sineAmount: number;
   pulseSize: number; 
-  enableSpin: boolean; 
   spinSpeed: number; 
   spinAxisX: number;
   spinAxisY: number;
-  maskEnabled: boolean;
   maskRadius: number;
   maskFeather: number;
   maskInvert: boolean;
@@ -42,15 +106,12 @@ function Scene({ volume, vertexCount, pointSize, shellCount, freezeTime, advance
   glowRadiusFactor: number;
   sizeRandomness: number;
   backgroundTheme: 'dark' | 'light';
-  enableRippleNoise: boolean;
   rippleAmount: number;
   rippleSpeed: number;
   rippleScale: number;
-  enableSurfaceRipple: boolean;
   surfaceRippleAmount: number;
   surfaceRippleSpeed: number;
   surfaceRippleScale: number;
-  enableArcs: boolean;
   arcMaxCount: number;
   arcSpawnRate: number;
   arcDuration: number;
@@ -70,17 +131,20 @@ function Scene({ volume, vertexCount, pointSize, shellCount, freezeTime, advance
   sineMicModAmount: number;
   rippleMicModAmount: number;
   surfaceRippleMicModAmount: number;
-  enableGradient: boolean;
   gradientColor2: string;
   gradientAngle: number;
-  transition?: TransitionOptions;
+  morph?: {
+    enabled?: boolean;
+    progress?: number;
+    to?: Partial<any>;
+  };
 }) {
   const bg = useMemo(() => new THREE.Color(backgroundTheme === 'dark' ? '#0b0f13' : '#ffffff'), [backgroundTheme]);
   const blendingMode = backgroundTheme === 'light' ? 'normal' : 'additive' as const;
   const pc = (pointColor || '').trim().toLowerCase();
   const isWhite = pc === '#ffffff' || pc === '#fff';
   // Only substitute on light bg when gradient is disabled, to respect white in gradients
-  const displayPointColor = backgroundTheme === 'light' && isWhite && !enableGradient ? '#0b0f13' : pointColor;
+  const displayPointColor = backgroundTheme === 'light' && isWhite ? '#0b0f13' : pointColor;
   return (
     <>
       <color attach="background" args={[bg]} />
@@ -98,24 +162,19 @@ function Scene({ volume, vertexCount, pointSize, shellCount, freezeTime, advance
           rotationX={rotationX}
           rotationY={rotationY}
           rotationZ={rotationZ}
-          enableRandomishNoise={enableRandomishNoise}
           randomishAmount={randomishAmount}
-          enableSineNoise={enableSineNoise}
           sineAmount={sineAmount}
           pulseSize={pulseSize}
-          enableSpin={enableSpin}
           spinSpeed={spinSpeed}
           randomishSpeed={randomishSpeed}
           spinAxisX={spinAxisX}
           spinAxisY={spinAxisY}
-          maskEnabled={maskEnabled}
           maskRadius={maskRadius}
           maskFeather={maskFeather}
           maskInvert={maskInvert}
           sineSpeed={sineSpeed}
           sineScale={sineScale}
           pointColor={displayPointColor}
-          enableGradient={enableGradient}
           gradientColor2={gradientColor2}
           gradientAngle={gradientAngle}
           glowColor={glowColor}
@@ -124,15 +183,12 @@ function Scene({ volume, vertexCount, pointSize, shellCount, freezeTime, advance
           sizeRandomness={sizeRandomness}
           blendingMode={blendingMode}
           
-          enableRippleNoise={enableRippleNoise}
           rippleAmount={rippleAmount}
           rippleSpeed={rippleSpeed}
           rippleScale={rippleScale}
-          enableSurfaceRipple={enableSurfaceRipple}
           surfaceRippleAmount={surfaceRippleAmount}
           surfaceRippleSpeed={surfaceRippleSpeed}
           surfaceRippleScale={surfaceRippleScale}
-          enableArcs={enableArcs}
           arcMaxCount={arcMaxCount}
           arcSpawnRate={arcSpawnRate}
           arcDuration={arcDuration}
@@ -147,7 +203,7 @@ function Scene({ volume, vertexCount, pointSize, shellCount, freezeTime, advance
           sineMicModAmount={sineMicModAmount}
           rippleMicModAmount={rippleMicModAmount}
           surfaceRippleMicModAmount={surfaceRippleMicModAmount}
-          transition={transition}
+          morph={morph}
         />
       </Suspense>
     </>
@@ -160,39 +216,89 @@ function App() {
   const ensureDefaultAnimation = useAnimationStore(s => s.ensureDefaultAnimation);
   const { playRequestId, animations } = useAnimationStore();
   const controlsRef = useRef<OrbitControlsImpl | null>(null);
-  const [transition, setTransition] = useState<TransitionOptions>({ enabled: false });
+  // Morph driver state: progress and target (B-lane)
+  const [morphState, setMorphState] = useState<{ enabled: boolean; progress: number; to: Partial<typeof config> | null }>({ enabled: false, progress: 0, to: null });
+  const animRafRef = useRef<number | null>(null);
+  const animStartRef = useRef<number>(0);
+  const animDurRef = useRef<number>(600); // ms
+  const animEaseFnRef = useRef<(t: number) => number>((t: number) => t);
+  const targetCfgRef = useRef<Partial<typeof config> | null>(null);
 
   useEffect(() => { ensureDefaultAnimation(); }, [ensureDefaultAnimation]);
 
-  // Handle animation playback via auto-transition
-  useEffect(() => {
-    if (!playRequestId) {
-      setTransition({ enabled: false });
-      return;
-    }
-    
-    const anim = animations.find(a => a.id === playRequestId);
-    if (!anim) {
-      setTransition({ enabled: false });
-      return;
-    }
+  // Map a config to the visual state: disabled -> amount 0, keep mask/gradient/enabled arcs toggles
+  function toVisual(cfg: typeof config): Record<string, number | string> {
+    // Map toggles -> values: disabled treated as 0 (or neutral)
+    return {
+      pointSize: cfg.pointSize,
+      size: cfg.size,
+      opacity: cfg.opacity,
+      rotationX: cfg.rotationX,
+      rotationY: cfg.rotationY,
+      rotationZ: cfg.rotationZ,
+      randomishAmount: cfg.enableRandomishNoise ? cfg.randomishAmount : 0,
+      pulseSize: cfg.pulseSize,
+      sineAmount: cfg.enableSineNoise ? cfg.sineAmount : 0,
+      rippleAmount: cfg.enableRippleNoise ? cfg.rippleAmount : 0,
+      surfaceRippleAmount: cfg.enableSurfaceRipple ? cfg.surfaceRippleAmount : 0,
+      spinSpeed: cfg.enableSpin ? cfg.spinSpeed : 0,
+      spinAxisX: cfg.enableSpin ? cfg.spinAxisX : 0,
+      spinAxisY: cfg.enableSpin ? cfg.spinAxisY : 0,
+      maskRadius: cfg.maskEnabled ? cfg.maskRadius : 0,
+      maskFeather: cfg.maskEnabled ? cfg.maskFeather : 0,
+      gradientAngle: cfg.enableGradient ? cfg.gradientAngle : 0,
+      sizeRandomness: cfg.sizeRandomness,
+      glowStrength: cfg.glowStrength,
+      glowRadiusFactor: cfg.glowRadiusFactor,
+      arcSpawnRate: cfg.enableArcs ? cfg.arcSpawnRate : 0,
+      arcDuration: cfg.enableArcs ? cfg.arcDuration : 0,
+      arcSpeed: cfg.enableArcs ? cfg.arcSpeed : 0,
+      arcSpanDeg: cfg.enableArcs ? cfg.arcSpanDeg : 0,
+      arcThickness: cfg.enableArcs ? cfg.arcThickness : 0,
+      arcFeather: cfg.enableArcs ? cfg.arcFeather : 0,
+      arcBrightness: cfg.enableArcs ? cfg.arcBrightness : 0,
+      arcAltitude: cfg.enableArcs ? cfg.arcAltitude : 0,
+      pointColor: cfg.pointColor,
+      gradientColor2: cfg.gradientColor2,
+      glowColor: cfg.glowColor,
+    };
+  }
 
-    // Map animation definition to transition options
-    const transitionOptions: TransitionOptions = {
-      enabled: true,
-      duration: anim.duration,
-      ease: anim.ease as any, // Full compatibility with saved animations
-      onComplete: () => {
-        // Clear the play request when animation completes
+  // Handle animation playback by driving morph (A-lane = live config, B-lane = target)
+  useEffect(() => {
+    if (!playRequestId) return;
+    const anim = animations.find(a => a.id === playRequestId);
+    if (!anim) return;
+
+    const mergedTargetCfg = { ...config, ...anim.to } as typeof config;
+    targetCfgRef.current = mergedTargetCfg;
+    animDurRef.current = Math.max(0, (anim.duration ?? 0.6) * 1000);
+    animEaseFnRef.current = getEaser(anim.ease as AnimEase);
+    animStartRef.current = performance.now();
+
+    if (animRafRef.current) cancelAnimationFrame(animRafRef.current);
+
+    const tick = () => {
+      const now = performance.now();
+      const t = animDurRef.current === 0 ? 1 : Math.min(1, (now - animStartRef.current) / animDurRef.current);
+      const te = animEaseFnRef.current(t);
+      setMorphState({ enabled: true, progress: te, to: targetCfgRef.current });
+      if (t < 1) {
+        animRafRef.current = requestAnimationFrame(tick);
+      } else {
+        // Commit final target to UI state so we stay at B after morph
+        if (targetCfgRef.current) {
+          setConfig(targetCfgRef.current as typeof config);
+        }
         useAnimationStore.getState().clearPlayRequest();
+        setMorphState({ enabled: false, progress: 0, to: null });
+        animRafRef.current = null;
       }
     };
+    animRafRef.current = requestAnimationFrame(tick);
 
-    setTransition(transitionOptions);
-    
-    // Apply the target config - this will trigger auto-transition from current → target
-    setConfig(anim.to);
-  }, [playRequestId, animations, setConfig]);
+    return () => { if (animRafRef.current) cancelAnimationFrame(animRafRef.current); };
+  }, [playRequestId, animations]);
 
   useEffect(() => {
     if (config.micEnabled) {
@@ -224,10 +330,9 @@ function App() {
               sineMicModAmount={config.sineMicModAmount}
               rippleMicModAmount={config.rippleMicModAmount}
               surfaceRippleMicModAmount={config.surfaceRippleMicModAmount}
-              enableGradient={config.enableGradient}
+              // gradient enable is internal now (value-driven)
               gradientColor2={config.gradientColor2}
               gradientAngle={config.gradientAngle}
-              transition={transition}
               vertexCount={config.vertexCount}
               pointSize={config.pointSize}
               shellCount={config.shellCount}
@@ -238,17 +343,14 @@ function App() {
               rotationX={config.rotationX}
               rotationY={config.rotationY}
               rotationZ={config.rotationZ}
-              enableRandomishNoise={config.enableRandomishNoise}
               randomishAmount={config.randomishAmount}
-              enableSineNoise={config.enableSineNoise}
               sineAmount={config.sineAmount}
               pulseSize={config.pulseSize}
-              enableSpin={config.enableSpin}
               spinSpeed={config.spinSpeed}
               randomishSpeed={config.randomishSpeed}
               spinAxisX={config.spinAxisX}
               spinAxisY={config.spinAxisY}
-              maskEnabled={config.maskEnabled}
+              // mask should reflect live UI immediately; use config directly
               maskRadius={config.maskRadius}
               maskFeather={config.maskFeather}
               maskInvert={config.maskInvert}
@@ -260,15 +362,15 @@ function App() {
               glowRadiusFactor={config.glowRadiusFactor}
               sizeRandomness={config.sizeRandomness}
               backgroundTheme={config.backgroundTheme}
-              enableRippleNoise={config.enableRippleNoise}
+              // ripple enable is internal now (value-driven)
               rippleAmount={config.rippleAmount}
               rippleSpeed={config.rippleSpeed}
               rippleScale={config.rippleScale}
-              enableSurfaceRipple={config.enableSurfaceRipple}
+              // surface ripple enable is internal now (value-driven)
               surfaceRippleAmount={config.surfaceRippleAmount}
               surfaceRippleSpeed={config.surfaceRippleSpeed}
               surfaceRippleScale={config.surfaceRippleScale}
-              enableArcs={config.enableArcs}
+              // arcs enable is internal now (value-driven)
               arcMaxCount={config.arcMaxCount}
               arcSpawnRate={config.arcSpawnRate}
               arcDuration={config.arcDuration}
@@ -278,6 +380,7 @@ function App() {
               arcFeather={config.arcFeather}
               arcBrightness={config.arcBrightness}
               arcAltitude={config.arcAltitude}
+              morph={{ enabled: morphState.enabled, progress: morphState.progress, to: morphState.to || undefined }}
             />
             <EffectComposer>
               <Bloom

@@ -87,13 +87,21 @@ export interface SphereWaveformProps {
   surfaceRippleMicModAmount?: number; // 0..1
   // Auto-transition of animatable props
   transition?: TransitionOptions;
+  // Dual-state morphing: compute A and B lanes in-shader and blend by progress
+  morph?: {
+    enabled?: boolean;
+    progress?: number; // 0..1
+    to?: Partial<SphereWaveformProps>;
+  };
 }
 
 interface Uniforms {
   uTime: { value: number };
   uVolume: { value: number };
   uRadius: { value: number };
+  uRadius2: { value: number };
   uPointSize: { value: number };
+  uPointSize2: { value: number };
   uPixelRatio: { value: number };
   uViewportWidth: { value: number };
   uViewportHeight: { value: number };
@@ -101,34 +109,48 @@ interface Uniforms {
   uShellPhase: { value: number };
   uEnableRandomish: { value: number };
   uRandomishAmount: { value: number };
+  uRandomishAmount2: { value: number };
   uEnableSine: { value: number };
   uSineAmount: { value: number };
+  uSineAmount2: { value: number };
   uRandomishSpeed: { value: number };
+  uRandomishSpeed2: { value: number };
   uPulseSize: { value: number };
+  uPulseSize2: { value: number };
   uOpacity: { value: number };
   // Size randomness
   uSizeRandomness: { value: number };
   // Halo expansion
   uGlowRadiusFactor: { value: number };
+  uGlowRadiusFactor2: { value: number };
   // uGlowSoftness removed
   uExpandHalo: { value: number };
   // Ripple uniforms
   uEnableRipple: { value: number };
   uRippleAmount: { value: number };
+  uRippleAmount2: { value: number };
   uRippleSpeed: { value: number };
+  uRippleSpeed2: { value: number };
   uRippleScale: { value: number };
+  uRippleScale2: { value: number };
   // Surface ripple (tangent displacement)
   uEnableSurfaceRipple: { value: number };
   uSurfaceRippleAmount: { value: number };
+  uSurfaceRippleAmount2: { value: number };
   uSurfaceRippleSpeed: { value: number };
+  uSurfaceRippleSpeed2: { value: number };
   uSurfaceRippleScale: { value: number };
+  uSurfaceRippleScale2: { value: number };
   uSurfaceCenter: { value: THREE.Vector3 };
   // New toggle-based uniforms
   uEnableSpin: { value: number };
   uSpinSpeed: { value: number };
+  uSpinSpeed2: { value: number };
   // Spin axis uniforms
   uSpinAxisX: { value: number };
   uSpinAxisY: { value: number };
+  uSpinAxisX2: { value: number };
+  uSpinAxisY2: { value: number };
   // Screen-space mask uniforms
   uMaskEnabled: { value: number };
   uMaskRadiusPx: { value: number };
@@ -138,6 +160,8 @@ interface Uniforms {
   // Sine noise uniforms
   uSineSpeed: { value: number };
   uSineScale: { value: number };
+  uSineSpeed2: { value: number };
+  uSineScale2: { value: number };
   // Appearance
   uColor: { value: THREE.Color };
   uGlowColor: { value: THREE.Color };
@@ -158,6 +182,8 @@ interface Uniforms {
   uArcFeather: { value: Float32Array };
   uArcBright: { value: Float32Array };
   uArcAltitude: { value: number };
+  // Morph blending
+  uMorphProgress: { value: number };
 }
 
 const vertexShader = /* glsl */ `
@@ -167,7 +193,9 @@ attribute float aSeed;
 uniform float uTime;
 uniform float uVolume;
 uniform float uRadius;
+uniform float uRadius2;
 uniform float uPointSize;
+uniform float uPointSize2;
 uniform float uPixelRatio;
 uniform float uViewportWidth;
 uniform float uViewportHeight;
@@ -175,23 +203,36 @@ uniform float uFov;
 uniform float uShellPhase;
 uniform float uSizeRandomness;
 uniform float uGlowRadiusFactor;
+uniform float uGlowRadiusFactor2;
 // softness removed
 uniform int uEnableRandomish;
 uniform float uRandomishAmount;
+uniform float uRandomishAmount2;
 uniform int uEnableSine;
 uniform float uSineAmount;
+uniform float uSineAmount2;
 uniform float uRandomishSpeed;
+uniform float uRandomishSpeed2;
 uniform float uSineSpeed;
 uniform float uSineScale;
+uniform float uSineSpeed2;
+uniform float uSineScale2;
 uniform float uPulseSize;
+uniform float uPulseSize2;
 uniform int uEnableRipple;
 uniform float uRippleAmount;
+uniform float uRippleAmount2;
 uniform float uRippleSpeed;
+uniform float uRippleSpeed2;
 uniform float uRippleScale;
+uniform float uRippleScale2;
 uniform int uEnableSurfaceRipple;
 uniform float uSurfaceRippleAmount;
+uniform float uSurfaceRippleAmount2;
 uniform float uSurfaceRippleSpeed;
+uniform float uSurfaceRippleSpeed2;
 uniform float uSurfaceRippleScale;
+uniform float uSurfaceRippleScale2;
 uniform vec3 uSurfaceCenter;
 // Arcs
 const int MAX_ARCS = 8;
@@ -209,12 +250,16 @@ uniform float uArcAltitude;
 // New toggle-based uniforms
 uniform int uEnableSpin;
 uniform float uSpinSpeed;
+uniform float uSpinSpeed2;
 // Spin axis uniforms
 uniform float uSpinAxisX;
 uniform float uSpinAxisY;
+uniform float uSpinAxisX2;
+uniform float uSpinAxisY2;
 // Gradient coloring
 uniform int uEnableGradient;
 uniform float uGradientAngle; // radians
+uniform float uMorphProgress; // 0..1
 
 varying vec2 vNdc;
 varying float vArcBoost;
@@ -250,45 +295,69 @@ float smoothNoise(vec3 p) {
 
 void main() {
   vec3 initialBase = normalize(position);
-  vec3 base = initialBase;
+  vec3 baseA = initialBase;
+  vec3 baseB = initialBase;
 
   // Spin rotates around custom axis when enabled
   if (uEnableSpin > 0) {
-    float spinAngle = uTime * uSpinSpeed;
+    float spinAngleA = uTime * uSpinSpeed;
+    float spinAngleB = uTime * uSpinSpeed2;
     
     // Convert axis angles to a normalized rotation axis vector
     // We'll use the axis angles to define the rotation axis
-    float xRad = radians(uSpinAxisX);
-    float yRad = radians(uSpinAxisY);
+    float xRadA = radians(uSpinAxisX);
+    float yRadA = radians(uSpinAxisY);
+    float xRadB = radians(uSpinAxisX2);
+    float yRadB = radians(uSpinAxisY2);
     
     // Create a rotation axis from the angles
     // This creates a unit vector pointing in the direction of the rotation axis
-    vec3 axis = normalize(vec3(
-      sin(yRad),
-      sin(xRad),
-      cos(xRad) * cos(yRad)
+    vec3 axisA = normalize(vec3(
+      sin(yRadA),
+      sin(xRadA),
+      cos(xRadA) * cos(yRadA)
+    ));
+    vec3 axisB = normalize(vec3(
+      sin(yRadB),
+      sin(xRadB),
+      cos(xRadB) * cos(yRadB)
     ));
     
     // Rodrigues' rotation formula to rotate around the custom axis
-    float c = cos(spinAngle);
-    float s = sin(spinAngle);
-    float omc = 1.0 - c; // one minus cosine
+    float cA = cos(spinAngleA);
+    float sA = sin(spinAngleA);
+    float omcA = 1.0 - cA; // one minus cosine
+    float cB = cos(spinAngleB);
+    float sB = sin(spinAngleB);
+    float omcB = 1.0 - cB; // one minus cosine
     
     // Rotation matrix for rotation around arbitrary axis
-    mat3 R = mat3(
-      axis.x * axis.x * omc + c,
-      axis.x * axis.y * omc - axis.z * s,
-      axis.x * axis.z * omc + axis.y * s,
-      axis.y * axis.x * omc + axis.z * s,
-      axis.y * axis.y * omc + c,
-      axis.y * axis.z * omc - axis.x * s,
-      axis.z * axis.x * omc - axis.y * s,
-      axis.z * axis.y * omc + axis.x * s,
-      axis.z * axis.z * omc + c
+    mat3 RA = mat3(
+      axisA.x * axisA.x * omcA + cA,
+      axisA.x * axisA.y * omcA - axisA.z * sA,
+      axisA.x * axisA.z * omcA + axisA.y * sA,
+      axisA.y * axisA.x * omcA + axisA.z * sA,
+      axisA.y * axisA.y * omcA + cA,
+      axisA.y * axisA.z * omcA - axisA.x * sA,
+      axisA.z * axisA.x * omcA - axisA.y * sA,
+      axisA.z * axisA.y * omcA + axisA.x * sA,
+      axisA.z * axisA.z * omcA + cA
+    );
+    mat3 RB = mat3(
+      axisB.x * axisB.x * omcB + cB,
+      axisB.x * axisB.y * omcB - axisB.z * sB,
+      axisB.x * axisB.z * omcB + axisB.y * sB,
+      axisB.y * axisB.x * omcB + axisB.z * sB,
+      axisB.y * axisB.y * omcB + cB,
+      axisB.y * axisB.z * omcB - axisB.x * sB,
+      axisB.z * axisB.x * omcB - axisB.y * sB,
+      axisB.z * axisB.y * omcB + axisB.x * sB,
+      axisB.z * axisB.z * omcB + cB
     );
     
     // Apply the rotation
-    base = R * base;
+    baseA = RA * baseA;
+    baseB = RB * baseB;
   }
 
   // Base time
@@ -298,7 +367,7 @@ void main() {
   if (uEnableRandomish > 0) {
     float spatialScale = mix(0.5, 10.0, uPulseSize);
     float tR = t * uRandomishSpeed;
-    vec3 p = base * spatialScale + vec3(aSeed * 0.1, aSeed * 0.2, tR);
+    vec3 p = baseA * spatialScale + vec3(aSeed * 0.1, aSeed * 0.2, tR);
     nRandomish = (smoothNoise(p) * 2.0 - 1.0) * uRandomishAmount;
   }
   float nSine = 0.0;
@@ -309,14 +378,14 @@ void main() {
   float nRipple = 0.0;
   if (uEnableRipple > 0) {
     float tR = t * uRippleSpeed;
-    float longitude = atan(base.y, base.x); // [-pi, pi]
+    float longitude = atan(baseA.y, baseA.x); // [-pi, pi]
     float wave = sin(longitude * uRippleScale - tR);
     nRipple = wave * uRippleAmount;
   }
   // Surface ripple displacement along tangent directions (keeps radius ~constant)
   vec3 tangentDisplaced = vec3(0.0);
   if (uEnableSurfaceRipple > 0) {
-    vec3 N = normalize(base);
+    vec3 N = normalize(baseA);
     // Geodesic angle from moving center
     float angle = acos(clamp(dot(N, normalize(uSurfaceCenter)), -1.0, 1.0));
     float phase = angle * uSurfaceRippleScale - t * uSurfaceRippleSpeed;
@@ -329,15 +398,73 @@ void main() {
       toCenterTangent = normalize(cross(N, cross(alt, N)));
     }
     vec3 offset = toCenterTangent * (wave * uSurfaceRippleAmount * 0.25);
-    vec3 surf = normalize(base + offset);
-    tangentDisplaced = surf - base;
+    vec3 surf = normalize(baseA + offset);
+    tangentDisplaced = surf - baseA;
   }
   float n = nRandomish + nSine + nRipple;
 
   // Map n in [-1,1] to multiplicative radius: 1 + n*volume
-  float radialFactor = 1.0 + n * clamp(uVolume, 0.0, 1.0);
-  radialFactor = clamp(radialFactor, 0.0, 2.5);
-  vec3 displaced = (base + tangentDisplaced) * (uRadius * radialFactor);
+  float radialFactorA = 1.0 + n * clamp(uVolume, 0.0, 1.0);
+  radialFactorA = clamp(radialFactorA, 0.0, 2.5);
+  vec3 displacedA = (baseA + tangentDisplaced) * (uRadius * radialFactorA);
+
+  // Lane B
+  float nRandomishB = 0.0;
+  float nSineB = 0.0;
+  float nRippleB = 0.0;
+  vec3 tangentDisplacedB = vec3(0.0);
+  if (uEnableRandomish > 0) {
+    float spatialScaleB = mix(0.5, 10.0, uPulseSize2);
+    float tRB = t * uRandomishSpeed2;
+    vec3 pB = baseB * spatialScaleB + vec3(aSeed * 0.1, aSeed * 0.2, tRB);
+    nRandomishB = (smoothNoise(pB) * 2.0 - 1.0) * uRandomishAmount2;
+  }
+  if (uEnableSine > 0) {
+    nSineB = sin(t * uSineSpeed2 + aSeed * 6.2831853 * uSineScale2) * uSineAmount2;
+  }
+  if (uEnableRipple > 0) {
+    float tRB = t * uRippleSpeed2;
+    float longitudeB = atan(baseB.y, baseB.x);
+    float waveB = sin(longitudeB * uRippleScale2 - tRB);
+    nRippleB = waveB * uRippleAmount2;
+  }
+  if (uEnableSurfaceRipple > 0) {
+    vec3 N2 = normalize(baseB);
+    float angle2 = acos(clamp(dot(N2, normalize(uSurfaceCenter)), -1.0, 1.0));
+    float phase2 = angle2 * uSurfaceRippleScale2 - t * uSurfaceRippleSpeed2;
+    float wave2 = sin(phase2);
+    vec3 toCenterTangent2 = normalize(uSurfaceCenter - dot(uSurfaceCenter, N2) * N2);
+    if (!all(greaterThan(abs(toCenterTangent2), vec3(1e-6)))) {
+      vec3 alt2 = vec3(1.0, 0.0, 0.0);
+      toCenterTangent2 = normalize(cross(N2, cross(alt2, N2)));
+    }
+    vec3 offset2 = toCenterTangent2 * (wave2 * uSurfaceRippleAmount2 * 0.25);
+    vec3 surf2 = normalize(baseB + offset2);
+    tangentDisplacedB = surf2 - baseB;
+  }
+  float nB = nRandomishB + nSineB + nRippleB;
+  float radialFactorB = 1.0 + nB * clamp(uVolume, 0.0, 1.0);
+  radialFactorB = clamp(radialFactorB, 0.0, 2.5);
+  vec3 displacedB = (baseB + tangentDisplacedB) * (uRadius2 * radialFactorB);
+
+  float s = clamp(uMorphProgress, 0.0, 1.0);
+  // Spherical interpolation between lane directions to avoid passing through the origin
+  vec3 dirA = normalize(baseA + tangentDisplaced);
+  vec3 dirB = normalize(baseB + tangentDisplacedB);
+  float dotAB = clamp(dot(dirA, dirB), -1.0, 1.0);
+  float theta = acos(dotAB);
+  vec3 dir;
+  if (theta < 1e-4) {
+    dir = dirA;
+  } else {
+    float sinTheta = sin(theta);
+    float wA = sin((1.0 - s) * theta) / sinTheta;
+    float wB = sin(s * theta) / sinTheta;
+    dir = normalize(wA * dirA + wB * dirB);
+  }
+  float radiusMix = mix(uRadius * radialFactorA, uRadius2 * radialFactorB, s);
+  vec3 displaced = dir * radiusMix;
+  vec3 base = dir;
 
   // Arcs influence: accumulate alpha boost and small radial puff
   vArcBoost = 0.0;
@@ -383,9 +510,10 @@ void main() {
   float rand01 = hash(aSeed);
   float sizeFactor = mix(1.0, rand01 * 2.0, clamp(uSizeRandomness, 0.0, 1.0));
   vSizeRand = sizeFactor;
-  float basePx = (uPointSize * sizeFactor) * uPixelRatio * scale / -mvPosition.z;
-  // Halo scales with core radius: thickness per side = factor * basePx
-  float haloPx = max(0.0, uGlowRadiusFactor) * basePx;
+  float pointSizeMix = mix(uPointSize, uPointSize2, s);
+  float glowMix = mix(uGlowRadiusFactor, uGlowRadiusFactor2, s);
+  float basePx = (pointSizeMix * sizeFactor) * uPixelRatio * scale / -mvPosition.z;
+  float haloPx = max(0.0, glowMix) * basePx;
   float expanded = basePx + 2.0 * haloPx;
   vCoreRadiusNorm = (expanded > 0.0) ? clamp(basePx / expanded, 0.0, 1.0) : 1.0;
   gl_PointSize = clamp(expanded, 0.0, 2048.0);
@@ -652,6 +780,7 @@ export function SphereWaveform({
   rippleMicModAmount = 0,
   surfaceRippleMicModAmount = 0,
   transition,
+  morph,
 }: SphereWaveformProps) {
   const groupRef = useRef<THREE.Group | null>(null);
   const uniformsRef = useRef<Uniforms[] | null>(null);
@@ -693,7 +822,8 @@ export function SphereWaveform({
 
   // Initialize/handle prop changes → targets and (optionally) start tween
   useEffect(() => {
-    const enabled = Boolean(transition?.enabled ?? true);
+    // Only run internal transition when explicitly enabled
+    const enabled = transition?.enabled === true;
     const duration = (transition?.duration ?? 0.6);
     const ease = getEaser(transition?.ease ?? 'power2.inOut');
     onStartRef.current = transition?.onStart;
@@ -847,7 +977,9 @@ export function SphereWaveform({
         uTime: { value: 0 },
         uVolume: { value: 0 },
         uRadius: { value: radius * (i === 0 ? 1 : 1 + i * 0.2) },
+        uRadius2: { value: radius * (i === 0 ? 1 : 1 + i * 0.2) },
         uPointSize: { value: pointSize },
+        uPointSize2: { value: pointSize },
         uPixelRatio: { value: Math.min(window.devicePixelRatio, 2) },
         uViewportWidth: { value: window.innerWidth },
         uViewportHeight: { value: window.innerHeight },
@@ -856,39 +988,68 @@ export function SphereWaveform({
         uSizeRandomness: { value: sizeRandomness },
         uEnableRandomish: { value: enableRandomishNoise ? 1 : 0 },
         uRandomishAmount: { value: randomishAmount },
+        uRandomishAmount2: { value: randomishAmount },
         uEnableSine: { value: enableSineNoise ? 1 : 0 },
         uSineAmount: { value: sineAmount },
+        uSineAmount2: { value: sineAmount },
         uRandomishSpeed: { value: randomishSpeed },
+        uRandomishSpeed2: { value: randomishSpeed },
         uPulseSize: { value: pulseSize },
+        uPulseSize2: { value: pulseSize },
         uOpacity: { value: opacity },
+        // Size randomness
+        
+        // Halo expansion
+        uGlowRadiusFactor: { value: glowRadiusFactor },
+        uExpandHalo: { value: 1 },
+        uGlowRadiusFactor2: { value: glowRadiusFactor },
+        // uGlowSoftness removed
+        // Ripple uniforms
         uEnableRipple: { value: enableRippleNoise ? 1 : 0 },
         uRippleAmount: { value: rippleAmount },
+        uRippleAmount2: { value: rippleAmount },
         uRippleSpeed: { value: rippleSpeed },
+        uRippleSpeed2: { value: rippleSpeed },
         uRippleScale: { value: rippleScale },
+        uRippleScale2: { value: rippleScale },
+        // Surface ripple (tangent displacement)
         uEnableSurfaceRipple: { value: enableSurfaceRipple ? 1 : 0 },
         uSurfaceRippleAmount: { value: surfaceRippleAmount },
+        uSurfaceRippleAmount2: { value: surfaceRippleAmount },
         uSurfaceRippleSpeed: { value: surfaceRippleSpeed },
+        uSurfaceRippleSpeed2: { value: surfaceRippleSpeed },
         uSurfaceRippleScale: { value: surfaceRippleScale },
+        uSurfaceRippleScale2: { value: surfaceRippleScale },
         uSurfaceCenter: { value: new THREE.Vector3(0, 0, 1) },
+        // New toggle-based uniforms
         uEnableSpin: { value: enableSpin ? 1 : 0 },
         uSpinSpeed: { value: spinSpeed },
+        uSpinSpeed2: { value: spinSpeed },
+        // Spin axis uniforms
         uSpinAxisX: { value: spinAxisX },
         uSpinAxisY: { value: spinAxisY },
+        uSpinAxisX2: { value: spinAxisX },
+        uSpinAxisY2: { value: spinAxisY },
+        // Screen-space mask uniforms
         uMaskEnabled: { value: maskEnabled ? 1 : 0 },
         uMaskRadiusPx: { value: 0 },
         uMaskFeatherPx: { value: 0 },
         uMaskInvert: { value: maskInvert ? 1 : 0 },
         uMaskCenterNdc: { value: new THREE.Vector2(0, 0) },
+        // Sine noise uniforms
         uSineSpeed: { value: sineSpeed },
         uSineScale: { value: sineScale },
+        uSineSpeed2: { value: sineSpeed },
+        uSineScale2: { value: sineScale },
+        // Appearance
         uColor: { value: new THREE.Color(pointColor) },
         uColor2: { value: new THREE.Color(gradientColor2) },
         uEnableGradient: { value: enableGradient ? 1 : 0 },
         uGradientAngle: { value: 0 },
         uGlowColor: { value: new THREE.Color(glowColor) },
         uGlowStrength: { value: glowStrength },
-        uGlowRadiusFactor: { value: glowRadiusFactor },
-        uExpandHalo: { value: 1 },
+        uMorphProgress: { value: 0 },
+        
         uArcsActive: { value: 0 },
         uArcCenters: { value: new Float32Array(8 * 3) },
         uArcTangents: { value: new Float32Array(8 * 3) },
@@ -1036,8 +1197,8 @@ export function SphereWaveform({
       }
     }
 
-    // Use animated values if available, otherwise fall back to props
-    const anim = currentValuesRef.current;
+    // Use animated values only while an internal transition is active; otherwise use live props
+    const anim = animActiveRef.current ? currentValuesRef.current : null;
     const radiusV = anim?.radius ?? radius;
     const pointSizeV = anim?.pointSize ?? pointSize;
     const sizeV = anim?.size ?? size;
@@ -1060,8 +1221,9 @@ export function SphereWaveform({
     const spinSpeedV = anim?.spinSpeed ?? spinSpeed;
     const spinAxisXV = anim?.spinAxisX ?? spinAxisX;
     const spinAxisYV = anim?.spinAxisY ?? spinAxisY;
-    const maskRadiusV = anim?.maskRadius ?? maskRadius;
-    const maskFeatherV = anim?.maskFeather ?? maskFeather;
+    // Masks should respond instantly to UI; use raw props
+    const maskRadiusV = maskRadius;
+    const maskFeatherV = maskFeather;
     const gradientAngleV = anim?.gradientAngle ?? gradientAngle;
     const sizeRandomnessV = anim?.sizeRandomness ?? sizeRandomness;
     const glowStrengthV = anim?.glowStrength ?? glowStrength;
@@ -1083,11 +1245,19 @@ export function SphereWaveform({
       );
     }
 
+    // Morph context: B-lane target and progress
+    const mEnabled = Boolean(morph?.enabled);
+    const mProgress = THREE.MathUtils.clamp(morph?.progress ?? 0, 0, 1);
+    const toCfg = (mEnabled && morph?.to) ? morph.to : undefined;
+
     for (let i = 0; i < uniformsArray.length; i++) {
       const u = uniformsArray[i];
       u.uTime.value = timeAccRef.current;
       u.uRadius.value = radiusV * (1 + i * 0.2);
+      const radiusB = (toCfg?.radius as number | undefined) ?? radius;
+      u.uRadius2.value = radiusB * (1 + i * 0.2);
       u.uPointSize.value = pointSizeV;
+      u.uPointSize2.value = (toCfg?.pointSize as number | undefined) ?? pointSize;
       u.uViewportWidth.value = stateFrame.size.width;
       u.uViewportHeight.value = stateFrame.size.height;
       const cam = stateFrame.camera as THREE.PerspectiveCamera;
@@ -1103,6 +1273,11 @@ export function SphereWaveform({
         1
       );
       u.uRandomishAmount.value = randomishAmountFinal;
+      const randomishAmountB = THREE.MathUtils.clamp(
+        (((toCfg?.randomishAmount as number | undefined) ?? randomishAmount) || 0) + micEnv * THREE.MathUtils.clamp(randomishMicModAmount ?? 0, 0, 1),
+        0, 1
+      );
+      u.uRandomishAmount2.value = randomishAmountB;
       u.uEnableSine.value = 1; // Always enabled
       const sineAmountFinal = THREE.MathUtils.clamp(
         (sineAmountV ?? 0) + micEnv * THREE.MathUtils.clamp(sineMicModAmount ?? 0, 0, 1),
@@ -1110,8 +1285,15 @@ export function SphereWaveform({
         1
       );
       u.uSineAmount.value = sineAmountFinal;
+      const sineAmountB = THREE.MathUtils.clamp(
+        (((toCfg?.sineAmount as number | undefined) ?? sineAmount) || 0) + micEnv * THREE.MathUtils.clamp(sineMicModAmount ?? 0, 0, 1),
+        0, 1
+      );
+      u.uSineAmount2.value = sineAmountB;
       u.uRandomishSpeed.value = randomishSpeedV;
+      u.uRandomishSpeed2.value = (toCfg?.randomishSpeed as number | undefined) ?? randomishSpeed;
       u.uPulseSize.value = THREE.MathUtils.clamp(pulseSizeV, 0, 1);
+      u.uPulseSize2.value = THREE.MathUtils.clamp(((toCfg?.pulseSize as number | undefined) ?? pulseSize), 0, 1);
       u.uOpacity.value = THREE.MathUtils.clamp(opacityV, 0, 1);
       u.uSizeRandomness.value = THREE.MathUtils.clamp(sizeRandomnessV, 0, 1);
       // Ripple
@@ -1123,6 +1305,12 @@ export function SphereWaveform({
       );
       u.uRippleSpeed.value = rippleSpeedV;
       u.uRippleScale.value = rippleScaleV;
+      u.uRippleAmount2.value = THREE.MathUtils.clamp(
+        (((toCfg?.rippleAmount as number | undefined) ?? rippleAmount) || 0) + micEnv * THREE.MathUtils.clamp(rippleMicModAmount ?? 0, 0, 1),
+        0, 1
+      );
+      u.uRippleSpeed2.value = (toCfg?.rippleSpeed as number | undefined) ?? rippleSpeed;
+      u.uRippleScale2.value = (toCfg?.rippleScale as number | undefined) ?? rippleScale;
       // Surface ripple
       u.uEnableSurfaceRipple.value = 1; // Always enabled
       u.uSurfaceRippleAmount.value = THREE.MathUtils.clamp(
@@ -1132,31 +1320,67 @@ export function SphereWaveform({
       );
       u.uSurfaceRippleSpeed.value = surfaceRippleSpeedV;
       u.uSurfaceRippleScale.value = surfaceRippleScaleV;
+      u.uSurfaceRippleAmount2.value = THREE.MathUtils.clamp(
+        (((toCfg?.surfaceRippleAmount as number | undefined) ?? surfaceRippleAmount) || 0) + micEnv * THREE.MathUtils.clamp(surfaceRippleMicModAmount ?? 0, 0, 1),
+        0, 1
+      );
+      u.uSurfaceRippleSpeed2.value = (toCfg?.surfaceRippleSpeed as number | undefined) ?? surfaceRippleSpeed;
+      u.uSurfaceRippleScale2.value = (toCfg?.surfaceRippleScale as number | undefined) ?? surfaceRippleScale;
       u.uEnableSpin.value = 1; // Always enabled
       u.uSpinSpeed.value = spinSpeedV;
+      u.uSpinSpeed2.value = (toCfg?.spinSpeed as number | undefined) ?? spinSpeed;
       u.uSpinAxisX.value = spinAxisXV;
       u.uSpinAxisY.value = spinAxisYV;
-      // Mask that follows sphere center in screen space, and scales with view
-      u.uMaskEnabled.value = 1; // Always enabled
+      u.uSpinAxisX2.value = (toCfg?.spinAxisX as number | undefined) ?? spinAxisX;
+      u.uSpinAxisY2.value = (toCfg?.spinAxisY as number | undefined) ?? spinAxisY;
+      // Mask that follows sphere center in screen space; blend A/B by morph progress
+      const maskRadiusB = THREE.MathUtils.clamp(((toCfg?.maskRadius as number | undefined) ?? maskRadius), 0, 1);
+      const maskFeatherB = THREE.MathUtils.clamp(((toCfg?.maskFeather as number | undefined) ?? maskFeather), 0, 1);
+      const maskRadiusMix = mEnabled ? (THREE.MathUtils.clamp(maskRadiusV, 0, 1) + (maskRadiusB - THREE.MathUtils.clamp(maskRadiusV, 0, 1)) * mProgress) : THREE.MathUtils.clamp(maskRadiusV, 0, 1);
+      const maskFeatherMix = mEnabled ? (THREE.MathUtils.clamp(maskFeatherV, 0, 1) + (maskFeatherB - THREE.MathUtils.clamp(maskFeatherV, 0, 1)) * mProgress) : THREE.MathUtils.clamp(maskFeatherV, 0, 1);
+      u.uMaskEnabled.value = (maskRadiusMix > 0 || maskFeatherMix > 0) ? 1 : 0;
       u.uMaskInvert.value = maskInvert ? 1 : 0;
-      const sphereCenter = new THREE.Vector3(0, 0, 0);
-      const centerNdc = sphereCenter.clone().project(cam);
+      // Compute mask center from group's world position to ensure correct alignment
+      const worldCenter = new THREE.Vector3();
+      if (groupRef.current) {
+        groupRef.current.getWorldPosition(worldCenter);
+      } else {
+        worldCenter.set(0, 0, 0);
+      }
+      const centerNdc = worldCenter.clone().project(cam);
       u.uMaskCenterNdc.value.set(centerNdc.x, centerNdc.y);
       const minHalf = Math.min(stateFrame.size.width, stateFrame.size.height) * 0.5;
       // Map normalized maskRadius to pixels, adjusted by zoom (keeps scale roughly stable)
-      u.uMaskRadiusPx.value = THREE.MathUtils.clamp(maskRadiusV, 0, 1) * minHalf * (1.0 / Math.max(1e-3, cam.zoom));
-      u.uMaskFeatherPx.value = THREE.MathUtils.clamp(maskFeatherV, 0, 1) * minHalf * (1.0 / Math.max(1e-3, cam.zoom));
+      u.uMaskRadiusPx.value = maskRadiusMix * minHalf * (1.0 / Math.max(1e-3, cam.zoom));
+      u.uMaskFeatherPx.value = maskFeatherMix * minHalf * (1.0 / Math.max(1e-3, cam.zoom));
       // Sine noise
       u.uSineSpeed.value = sineSpeedV;
       u.uSineScale.value = sineScaleV;
+      u.uSineSpeed2.value = (toCfg?.sineSpeed as number | undefined) ?? sineSpeed;
+      u.uSineScale2.value = (toCfg?.sineScale as number | undefined) ?? sineScale;
       // Color
-      u.uColor.value.set(pointColorV);
-      u.uColor2.value.set(gradientColor2V);
-      u.uEnableGradient.value = 1; // Always enabled
-      u.uGradientAngle.value = THREE.MathUtils.degToRad(gradientAngleV);
+      // CPU-blend colors and gradient angle by morph progress
+      {
+        const colA = new THREE.Color(pointColorV);
+        const colB = new THREE.Color(((toCfg?.pointColor as string | undefined) ?? pointColor) || pointColor);
+        const colMix = colA.clone().lerp(colB, mProgress);
+        u.uColor.value.copy(colMix);
+        const gradA = new THREE.Color(gradientColor2V);
+        const gradB = new THREE.Color(((toCfg?.gradientColor2 as string | undefined) ?? gradientColor2) || gradientColor2);
+        const gradMix = gradA.clone().lerp(gradB, mProgress);
+        u.uColor2.value.copy(gradMix);
+        u.uEnableGradient.value = 1; // Always enabled
+        const angA = gradientAngleV;
+        const angB = (toCfg?.gradientAngle as number | undefined) ?? gradientAngle;
+        const angMix = angA + (angB - angA) * mProgress;
+        u.uGradientAngle.value = THREE.MathUtils.degToRad(angMix);
+      }
       u.uGlowColor.value.set(glowColorV);
       u.uGlowStrength.value = THREE.MathUtils.clamp(glowStrengthV, 0, 3);
       u.uGlowRadiusFactor.value = Math.max(0, glowRadiusFactorV);
+      u.uGlowRadiusFactor2.value = Math.max(0, ((toCfg?.glowRadiusFactor as number | undefined) ?? glowRadiusFactor));
+      // Morph progress uniform
+      u.uMorphProgress.value = mEnabled ? mProgress : 0;
       // Per-shell phase: deterministic from base seed and shell index
       const phaseBase = Math.sin((seed + i * 17.23) * 12.9898) * 43758.5453;
       const jitter = 1.0; // read directly from config in App if needed; default 1 here
