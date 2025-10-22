@@ -39,8 +39,6 @@ function Example() {
     freezeTime: false, advanceCount: 0, advanceAmount: 1/60,
     blendingMode: 'normal',
     micEnvelope: 0, randomishMicModAmount: 0, sineMicModAmount: 0, rippleMicModAmount: 0, surfaceRippleMicModAmount: 0,
-    enableRandomishNoise: true, enableSineNoise: true, enableRippleNoise: true, enableSurfaceRipple: true,
-    enableSpin: true, enableGradient: true, enableArcs: true, maskEnabled: true,
   });
 
   const { morph, play } = useMorphAnimator({
@@ -73,6 +71,49 @@ function Example() {
   - imperative alternative for non-React environments
 - `interpolateConfig(from, to, t)`
   - pure config interpolation util (for UI previews)
+
+#### Mic props
+- `micEnvelope` (number 0..1): mic-driven modulation value
+- `randomishMicModAmount`, `sineMicModAmount`, `rippleMicModAmount`, `surfaceRippleMicModAmount` (0..1): per-effect modulation depth from `micEnvelope`
+
+### Microphone input
+
+You provide a normalized `micEnvelope` (0..1). Minimal example hook:
+
+```tsx
+function useMicEnvelope(smoothing = 0.85) {
+  const [env, setEnv] = useState(0);
+  useEffect(() => {
+    let ctx: AudioContext | null = null, analyser: AnalyserNode | null = null, src: MediaStreamAudioSourceNode | null = null, raf = 0;
+    let data: Float32Array;
+    (async () => {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
+      analyser = ctx.createAnalyser();
+      analyser.fftSize = 1024;
+      analyser.smoothingTimeConstant = smoothing;
+      src = ctx.createMediaStreamSource(stream);
+      src.connect(analyser);
+      data = new Float32Array(analyser.fftSize);
+      const tick = () => {
+        analyser!.getFloatTimeDomainData(data);
+        let rms = 0; for (let i = 0; i < data.length; i++) rms += data[i] * data[i];
+        rms = Math.sqrt(rms / data.length);
+        const v = Math.min(1, rms * 4); // simple gain
+        setEnv((e) => e + (v - e) * 0.2); // light EMA
+        raf = requestAnimationFrame(tick);
+      };
+      tick();
+    })();
+    return () => { if (raf) cancelAnimationFrame(raf); src?.disconnect(); analyser?.disconnect(); ctx?.close(); };
+  }, [smoothing]);
+  return env;
+}
+
+// Usage
+const micEnvelope = useMicEnvelope();
+<SphereWaveform {...config} micEnvelope={micEnvelope} />
+```
 
 ### Notes
 
