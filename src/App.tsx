@@ -14,19 +14,7 @@ import { useMicAnalyzer } from '@/hooks/useMicAnalyzer';
 import { EffectComposer, Bloom } from '@react-three/postprocessing';
 
 // Easing util (matches component eases)
-type AnimEase =
-  | 'linear'
-  | 'power1.in' | 'power1.out' | 'power1.inOut'
-  | 'power2.in' | 'power2.out' | 'power2.inOut'
-  | 'power3.in' | 'power3.out' | 'power3.inOut'
-  | 'power4.in' | 'power4.out' | 'power4.inOut'
-  | 'sine.in' | 'sine.out' | 'sine.inOut'
-  | 'expo.in' | 'expo.out' | 'expo.inOut'
-  | 'back.in' | 'back.out' | 'back.inOut'
-  | 'elastic.in' | 'elastic.out' | 'elastic.inOut'
-  | 'bounce.in' | 'bounce.out' | 'bounce.inOut';
-
-function getEaser(name: AnimEase | undefined): (t: number) => number {
+function getEaser(name: string | undefined): (t: number) => number {
   switch (name) {
     case 'linear': return (t: number) => t;
     case 'power1.in': return (t: number) => t * t;
@@ -65,21 +53,6 @@ function getEaser(name: AnimEase | undefined): (t: number) => number {
     default: return (t: number) => t;
   }
 }
-
-type AnimatableNumericKey =
-  | 'pointSize' | 'size' | 'opacity'
-  | 'rotationX' | 'rotationY' | 'rotationZ'
-  | 'randomishAmount' | 'pulseSize'
-  | 'sineAmount'
-  | 'rippleAmount'
-  | 'surfaceRippleAmount'
-  | 'spinSpeed' | 'spinAxisX' | 'spinAxisY'
-  | 'maskRadius' | 'maskFeather'
-  | 'gradientAngle' | 'sizeRandomness'
-  | 'glowStrength' | 'glowRadiusFactor'
-  | 'arcSpawnRate' | 'arcDuration' | 'arcSpeed' | 'arcSpanDeg' | 'arcThickness' | 'arcFeather' | 'arcBrightness' | 'arcAltitude';
-
-type AnimatableColorKey = 'pointColor' | 'gradientColor2' | 'glowColor';
 
 function Scene({ volume, vertexCount, pointSize, shellCount, freezeTime, advanceCount, randomishAmount, sineAmount, pulseSize, spinSpeed, spinAxisX, spinAxisY, maskRadius, maskFeather, maskInvert, sineSpeed, sineScale, randomishSpeed, pointColor, glowColor, glowStrength, glowRadiusFactor, sizeRandomness, backgroundTheme, rippleAmount, rippleSpeed, rippleScale, surfaceRippleAmount, surfaceRippleSpeed, surfaceRippleScale, arcMaxCount, arcSpawnRate, arcDuration, arcSpeed, arcSpanDeg, arcThickness, arcFeather, arcBrightness, arcAltitude, size, opacity, rotationX, rotationY, rotationZ, micEnvelope, randomishMicModAmount, sineMicModAmount, rippleMicModAmount, surfaceRippleMicModAmount, gradientColor2, gradientAngle, morph }: { 
   volume: number; 
@@ -226,43 +199,7 @@ function App() {
 
   useEffect(() => { ensureDefaultAnimation(); }, [ensureDefaultAnimation]);
 
-  // Map a config to the visual state: disabled -> amount 0, keep mask/gradient/enabled arcs toggles
-  function toVisual(cfg: typeof config): Record<string, number | string> {
-    // Map toggles -> values: disabled treated as 0 (or neutral)
-    return {
-      pointSize: cfg.pointSize,
-      size: cfg.size,
-      opacity: cfg.opacity,
-      rotationX: cfg.rotationX,
-      rotationY: cfg.rotationY,
-      rotationZ: cfg.rotationZ,
-      randomishAmount: cfg.enableRandomishNoise ? cfg.randomishAmount : 0,
-      pulseSize: cfg.pulseSize,
-      sineAmount: cfg.enableSineNoise ? cfg.sineAmount : 0,
-      rippleAmount: cfg.enableRippleNoise ? cfg.rippleAmount : 0,
-      surfaceRippleAmount: cfg.enableSurfaceRipple ? cfg.surfaceRippleAmount : 0,
-      spinSpeed: cfg.enableSpin ? cfg.spinSpeed : 0,
-      spinAxisX: cfg.enableSpin ? cfg.spinAxisX : 0,
-      spinAxisY: cfg.enableSpin ? cfg.spinAxisY : 0,
-      maskRadius: cfg.maskEnabled ? cfg.maskRadius : 0,
-      maskFeather: cfg.maskEnabled ? cfg.maskFeather : 0,
-      gradientAngle: cfg.enableGradient ? cfg.gradientAngle : 0,
-      sizeRandomness: cfg.sizeRandomness,
-      glowStrength: cfg.glowStrength,
-      glowRadiusFactor: cfg.glowRadiusFactor,
-      arcSpawnRate: cfg.enableArcs ? cfg.arcSpawnRate : 0,
-      arcDuration: cfg.enableArcs ? cfg.arcDuration : 0,
-      arcSpeed: cfg.enableArcs ? cfg.arcSpeed : 0,
-      arcSpanDeg: cfg.enableArcs ? cfg.arcSpanDeg : 0,
-      arcThickness: cfg.enableArcs ? cfg.arcThickness : 0,
-      arcFeather: cfg.enableArcs ? cfg.arcFeather : 0,
-      arcBrightness: cfg.enableArcs ? cfg.arcBrightness : 0,
-      arcAltitude: cfg.enableArcs ? cfg.arcAltitude : 0,
-      pointColor: cfg.pointColor,
-      gradientColor2: cfg.gradientColor2,
-      glowColor: cfg.glowColor,
-    };
-  }
+  // removed toVisual: we now drive A-lane directly from config
 
   // Handle animation playback by driving morph (A-lane = live config, B-lane = target)
   useEffect(() => {
@@ -273,7 +210,7 @@ function App() {
     const mergedTargetCfg = { ...config, ...anim.to } as typeof config;
     targetCfgRef.current = mergedTargetCfg;
     animDurRef.current = Math.max(0, (anim.duration ?? 0.6) * 1000);
-    animEaseFnRef.current = getEaser(anim.ease as AnimEase);
+    animEaseFnRef.current = getEaser(anim.ease as string);
     animStartRef.current = performance.now();
 
     if (animRafRef.current) cancelAnimationFrame(animRafRef.current);
