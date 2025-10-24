@@ -1,4 +1,4 @@
-import type { SphereWaveformProps } from '@/components/SphereWaveform';
+import type { SphereWaveformProps } from '../components/SphereWaveform';
 import { type AnimEase } from './easing';
 export type WaveformConfig = Omit<SphereWaveformProps, 'transition' | 'morph'>;
 export type AnimSpec = {

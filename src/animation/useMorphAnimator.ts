@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import type { SphereWaveformProps } from '@/components/SphereWaveform';
+import type { SphereWaveformProps } from '../components/SphereWaveform';
 import { getEaser, type AnimEase } from './easing';
 
 export type WaveformConfig = Omit<SphereWaveformProps, 'transition' | 'morph'>;
