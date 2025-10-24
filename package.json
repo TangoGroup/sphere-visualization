@@ -7,7 +7,7 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
-    "build:lib": "vite -c vite.lib.config.ts",
+    "build:lib": "vite build -c vite.lib.config.ts",
     "types": "tsc -p tsconfig.types.json",
     "package": "npm run build:lib && npm run types",
     "prepare": "npm run package",

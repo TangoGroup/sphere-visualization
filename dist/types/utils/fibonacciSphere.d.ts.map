@@ -1,0 +1,1 @@
+{"version":3,"file":"fibonacciSphere.d.ts","sourceRoot":"","sources":["../../../src/utils/fibonacciSphere.ts"],"names":[],"mappings":"AAAA,MAAM,WAAW,qBAAqB;IACpC,SAAS,EAAE,YAAY,CAAC;IACxB,KAAK,EAAE,YAAY,CAAC;CACrB;AAED,wBAAgB,6BAA6B,CAC3C,WAAW,EAAE,MAAM,EACnB,MAAM,EAAE,MAAM,EACd,IAAI,GAAE,MAAU,GACf,qBAAqB,CA6BvB"}
