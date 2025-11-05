@@ -10,7 +10,7 @@
     "build:lib": "vite build -c vite.lib.config.ts",
     "types": "tsc -p tsconfig.types.json",
     "package": "npm run build:lib && npm run types",
-    "postinstall": "node scripts/postinstall.js",
+    "postinstall": "node scripts/postinstall.cjs",
     "lint": "eslint .",
     "preview": "vite preview",
     "prepublishOnly": "npm run package"
