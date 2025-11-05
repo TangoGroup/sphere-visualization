@@ -10,7 +10,7 @@
     "build:lib": "vite build -c vite.lib.config.ts",
     "types": "tsc -p tsconfig.types.json",
     "package": "npm run build:lib && npm run types",
-    "prepare": "npm run package",
+    "postinstall": "node -e \"const fs=require('fs'); if(!fs.existsSync('dist/types/index.d.ts')&&fs.existsSync('node_modules/typescript')){console.log('Building dist...'); require('child_process').execSync('npm run package',{stdio:'inherit'})}\"",
     "lint": "eslint .",
     "preview": "vite preview",
     "prepublishOnly": "npm run package"
